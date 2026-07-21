@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/AV1el/Aviel-Dialogue-Mischiefs/docs/schemas/npc_template.schema.json",
+  "title": "ADM NPC Template",
+  "description": "An NPC template for Aviel's Dialogue Mod. Place in config/adm-dialogues/npc_templates/.",
+  "type": "object",
+  "properties": {
+    "name": { "type": "string", "description": "Display name shown above the NPC." },
+    "dialogue": { "type": "string", "description": "Dialogue file (guard.json) or id (mymod:guard)." },
+    "dialogue_file": { "type": "string" },
+    "scale": { "type": "number", "minimum": 0.25, "maximum": 3.0 },
+    "name_visible": { "type": "boolean" },
+    "invulnerable": { "type": "boolean" },
+    "look_distance": { "type": "number", "minimum": 0, "maximum": 64 },
+    "model": { "type": "string", "enum": ["steve", "slim", "alex"], "description": "alex is an alias for slim." },
+    "player_model": { "type": "string", "enum": ["steve", "slim", "alex"] },
+    "skin": { "type": "string", "description": "PNG from config/adm-dialogues/skins (guard.png) or resource location." },
+    "equipment": {
+      "type": "object",
+      "description": "Armor and held items. Keys: mainhand, offhand, head, chest, legs, feet (aliases like helmet/weapon work too).",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "string", "description": "Item id like minecraft:iron_sword." },
+          {
+            "type": "object",
+            "properties": {
+              "item": { "type": "string" },
+              "id": { "type": "string" },
+              "count": { "type": "integer", "minimum": 1, "maximum": 64 }
+            },
+            "anyOf": [ { "required": ["item"] }, { "required": ["id"] } ]
+          }
+        ]
+      }
+    }
+  }
+}

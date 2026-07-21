@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/AV1el/Aviel-Dialogue-Mischiefs/docs/schemas/trade.schema.json",
+  "title": "ADM Trade Shop",
+  "description": "A trade shop for Aviel's Dialogue Mod. Place in config/adm-dialogues/trades/ or data/<ns>/adm_dialogues/trades/.",
+  "type": "object",
+  "properties": {
+    "title": { "type": "string", "maxLength": 80 },
+    "name": { "type": "string", "maxLength": 80 },
+    "subtitle": { "type": "string", "maxLength": 180 },
+    "description": { "type": "string", "maxLength": 180 },
+    "style": {
+      "type": "object",
+      "description": "Screen colors as #RRGGBB(AA) values.",
+      "additionalProperties": { "type": "string", "maxLength": 16 }
+    },
+    "offers": { "type": "array", "items": { "$ref": "#/definitions/offer" }, "minItems": 1 },
+    "trades": { "type": "array", "items": { "$ref": "#/definitions/offer" } }
+  },
+  "anyOf": [ { "required": ["offers"] }, { "required": ["trades"] } ],
+  "definitions": {
+    "offer": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 80 },
+        "title": { "type": "string", "maxLength": 80 },
+        "name": { "type": "string", "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 360 },
+        "lore": { "type": "string", "maxLength": 360 },
+        "category": { "type": "string", "maxLength": 80 },
+        "cost": { "$ref": "#/definitions/items", "description": "Items taken from the player (aliases: price, buy, take, take_items)." },
+        "price": { "$ref": "#/definitions/items" },
+        "buy": { "$ref": "#/definitions/items" },
+        "take": { "$ref": "#/definitions/items" },
+        "take_items": { "$ref": "#/definitions/items" },
+        "result": { "$ref": "#/definitions/items", "description": "Items given to the player (aliases: sell, give, give_items, reward)." },
+        "sell": { "$ref": "#/definitions/items" },
+        "give": { "$ref": "#/definitions/items" },
+        "give_items": { "$ref": "#/definitions/items" },
+        "reward": { "$ref": "#/definitions/items" },
+        "commands": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Server commands; placeholders {player}, {npc}, {amount}."
+        },
+        "requires_flags": { "type": "array", "items": { "type": "string" } },
+        "missing_flags": { "type": "array", "items": { "type": "string" } },
+        "requires_tags": { "type": "array", "items": { "type": "string" } },
+        "missing_tags": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "items": {
+      "oneOf": [
+        { "$ref": "#/definitions/item" },
+        { "type": "array", "items": { "$ref": "#/definitions/item" } }
+      ]
+    },
+    "item": {
+      "oneOf": [
+        { "type": "string", "description": "Item id, count 1." },
+        {
+          "type": "object",
+          "properties": {
+            "item": { "type": "string", "description": "Item id like minecraft:iron_ingot." },
+            "id": { "type": "string" },
+            "count": { "type": "integer", "minimum": 1 }
+          },
+          "anyOf": [ { "required": ["item"] }, { "required": ["id"] } ]
+        }
+      ]
+    }
+  }
+}

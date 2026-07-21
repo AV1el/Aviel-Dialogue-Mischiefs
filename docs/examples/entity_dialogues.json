@@ -1,0 +1,7 @@
+{
+  "$schema": "../schemas/entity_dialogues.schema.json",
+  "entities": {
+    "minecraft:iron_golem": "guard.json"
+  },
+  "default": ""
+}

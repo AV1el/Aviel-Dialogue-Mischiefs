@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schemas/npc_template.schema.json",
+  "name": "&6Town Guard",
+  "dialogue": "guard.json",
+  "scale": 1.05,
+  "name_visible": true,
+  "invulnerable": true,
+  "look_distance": 10.0,
+  "model": "steve",
+  "skin": "guard.png",
+  "equipment": {
+    "mainhand": "minecraft:iron_sword",
+    "offhand": "minecraft:shield",
+    "chest": "minecraft:iron_chestplate"
+  }
+}

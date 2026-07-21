@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/AV1el/Aviel-Dialogue-Mischiefs/docs/schemas/dialogue.schema.json",
+  "title": "ADM Dialogue",
+  "description": "A branching dialogue for Aviel's Dialogue Mod. Place in config/adm-dialogues/dialogues/ or data/<ns>/adm_dialogues/dialogues/.",
+  "type": "object",
+  "properties": {
+    "title": { "type": "string", "maxLength": 80, "description": "Window title." },
+    "speaker": { "type": "string", "maxLength": 80, "description": "Default speaker name for all nodes." },
+    "text_speed": { "type": "integer", "minimum": 0, "maximum": 12, "description": "Default typewriter speed (0 = instant)." },
+    "default_text_speed": { "type": "integer", "minimum": 0, "maximum": 12 },
+    "text_color": { "$ref": "#/definitions/color" },
+    "speaker_color": { "$ref": "#/definitions/color" },
+    "start": { "oneOf": [ { "type": "string" }, { "type": "array", "items": { "type": "string" } } ] },
+    "starts": { "type": "array", "items": { "type": "string" } },
+    "random_start": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Node ids to pick a random start from."
+    },
+    "sound": { "$ref": "#/definitions/sound" },
+    "style": { "$ref": "#/definitions/style" },
+    "nodes": {
+      "description": "Dialogue nodes as an id-to-node object, or an array of nodes with 'id' fields.",
+      "oneOf": [
+        { "type": "object", "additionalProperties": { "$ref": "#/definitions/node" } },
+        { "type": "array", "items": { "allOf": [ { "$ref": "#/definitions/node" }, { "required": ["id"] } ] } }
+      ]
+    }
+  },
+  "required": ["nodes"],
+  "definitions": {
+    "color": { "type": "string", "maxLength": 16, "pattern": "^$|^[&#].*", "description": "Hex color like #RRGGBB(AA) or & formatting code." },
+    "sound": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string", "enum": ["none", "off", "full", "repeating", "repeat"] },
+        "text": { "type": "string", "description": "Sound played while text types (file from config/adm-dialogues/sounds or resource location)." },
+        "text_sound": { "type": "string" },
+        "full": { "type": "string", "description": "Voice-over sound played once per node." },
+        "full_sound": { "type": "string" },
+        "voice": { "type": "string" },
+        "volume": { "type": "number", "minimum": 0, "maximum": 4 },
+        "pitch": { "type": "number", "minimum": 0.1, "maximum": 4 },
+        "letter_interval": { "type": "integer", "minimum": 1, "maximum": 12 }
+      }
+    },
+    "style": {
+      "type": "object",
+      "properties": {
+        "outer_color": { "$ref": "#/definitions/color" },
+        "text_background": { "$ref": "#/definitions/color" },
+        "choices_background": { "$ref": "#/definitions/color" },
+        "divider_color": { "$ref": "#/definitions/color" },
+        "button_color": { "$ref": "#/definitions/color" },
+        "button_hover_color": { "$ref": "#/definitions/color" },
+        "button_disabled_color": { "$ref": "#/definitions/color" },
+        "button_text_color": { "$ref": "#/definitions/color" },
+        "button_disabled_text_color": { "$ref": "#/definitions/color" }
+      }
+    },
+    "node": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 80 },
+        "speaker": { "type": "string", "maxLength": 80 },
+        "text": {
+          "oneOf": [ { "type": "string" }, { "type": "array", "items": { "type": "string" } } ],
+          "description": "Node text. Supports & formatting, {{lang.keys}} and inline tags like <pause:long>, <anim:wave>."
+        },
+        "text_speed": { "type": "integer", "minimum": 0, "maximum": 12 },
+        "speed": { "type": "integer", "minimum": 0, "maximum": 12 },
+        "text_color": { "$ref": "#/definitions/color" },
+        "speaker_color": { "$ref": "#/definitions/color" },
+        "sound": { "$ref": "#/definitions/sound" },
+        "choices": { "type": "array", "items": { "$ref": "#/definitions/choice" } }
+      }
+    },
+    "choice": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 80, "description": "Stable id recorded in player choice history." },
+        "text": { "type": "string", "maxLength": 140 },
+        "label": { "type": "string", "maxLength": 140 },
+        "next": { "type": "string", "maxLength": 80, "description": "Target node id." },
+        "close": { "type": "boolean" },
+        "action": { "type": "string", "enum": ["", "close", "exit", "back"] },
+        "trade": { "type": "string", "description": "Trade file or id to open (aliases: shop, open_trade)." },
+        "shop": { "type": "string" },
+        "open_trade": { "type": "string" },
+        "commands": { "type": "array", "items": { "type": "string" }, "description": "Server commands; placeholders {player}, {npc}, {player_uuid}, {npc_uuid}." },
+        "command": { "type": "string" },
+        "set_flags": { "$ref": "#/definitions/stringList" },
+        "add_flags": { "$ref": "#/definitions/stringList" },
+        "clear_flags": { "$ref": "#/definitions/stringList" },
+        "remove_flags": { "$ref": "#/definitions/stringList" },
+        "requires_flags": { "$ref": "#/definitions/stringList" },
+        "missing_flags": { "$ref": "#/definitions/stringList" },
+        "requires_missing_flags": { "$ref": "#/definitions/stringList" },
+        "add_tags": { "$ref": "#/definitions/stringList" },
+        "remove_tags": { "$ref": "#/definitions/stringList" },
+        "requires_tags": { "$ref": "#/definitions/stringList" },
+        "missing_tags": { "$ref": "#/definitions/stringList" },
+        "requires_missing_tags": { "$ref": "#/definitions/stringList" },
+        "requires_choices": { "$ref": "#/definitions/stringList" },
+        "requires_items": { "$ref": "#/definitions/itemRules" },
+        "take_items": { "$ref": "#/definitions/itemRules" },
+        "give_items": { "$ref": "#/definitions/itemRules" }
+      },
+      "anyOf": [ { "required": ["text"] }, { "required": ["label"] } ]
+    },
+    "stringList": { "type": "array", "items": { "type": "string" } },
+    "itemRules": {
+      "oneOf": [
+        { "$ref": "#/definitions/itemRule" },
+        { "type": "array", "items": { "$ref": "#/definitions/itemRule" } }
+      ]
+    },
+    "itemRule": {
+      "oneOf": [
+        { "type": "string", "description": "Item id, count 1." },
+        {
+          "type": "object",
+          "properties": {
+            "item": { "type": "string", "description": "Item id like minecraft:iron_ingot." },
+            "id": { "type": "string" },
+            "count": { "type": "integer", "minimum": 1 }
+          },
+          "anyOf": [ { "required": ["item"] }, { "required": ["id"] } ]
+        }
+      ]
+    }
+  }
+}

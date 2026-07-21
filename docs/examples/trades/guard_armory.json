@@ -1,0 +1,31 @@
+{
+  "$schema": "../../schemas/trade.schema.json",
+  "title": "Guard Armory",
+  "subtitle": "Surplus gear, fair prices.",
+  "offers": [
+    {
+      "id": "iron_sword",
+      "title": "Iron Sword",
+      "description": "Standard issue.",
+      "cost": [{ "item": "minecraft:iron_ingot", "count": 3 }],
+      "result": [{ "item": "minecraft:iron_sword", "count": 1 }]
+    },
+    {
+      "id": "shield",
+      "title": "Shield",
+      "cost": [
+        { "item": "minecraft:iron_ingot", "count": 1 },
+        { "item": "minecraft:oak_planks", "count": 6 }
+      ],
+      "result": [{ "item": "minecraft:shield", "count": 1 }]
+    },
+    {
+      "id": "veteran_blade",
+      "title": "Veteran's Blade",
+      "description": "Only for those who proved themselves.",
+      "requires_flags": ["guard_job_done"],
+      "cost": [{ "item": "minecraft:emerald", "count": 5 }],
+      "result": [{ "item": "minecraft:diamond_sword", "count": 1 }]
+    }
+  ]
+}

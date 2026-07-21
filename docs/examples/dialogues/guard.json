@@ -1,0 +1,72 @@
+{
+  "$schema": "../../schemas/dialogue.schema.json",
+  "title": "Town Guard",
+  "speaker": "Guard",
+  "text_speed": 2,
+  "sound": {
+    "mode": "repeating",
+    "text": "minecraft:ui.button.click",
+    "volume": 0.2,
+    "pitch": 1.3,
+    "letter_interval": 3
+  },
+  "nodes": {
+    "start": {
+      "text": "Halt! <pause:short>State your business, traveler.",
+      "choices": [
+        { "text": "Just passing through.", "next": "passing" },
+        { "text": "Any work for me?", "missing_flags": ["guard_job_done"], "next": "job_offer" },
+        { "text": "I finished the job.", "requires_flags": ["guard_job_started"], "next": "job_turn_in" },
+        { "text": "Can I see the armory?", "next": "armory" },
+        { "text": "Goodbye.", "close": true }
+      ]
+    },
+    "passing": {
+      "text": "Keep your blade sheathed and we will have no trouble.",
+      "choices": [
+        { "text": "Back.", "action": "back" },
+        { "text": "Goodbye.", "close": true }
+      ]
+    },
+    "job_offer": {
+      "text": "Wolves have been prowling the walls at night. <pause:medium>Bring me &c3 bones&r as proof and I will pay you.",
+      "choices": [
+        {
+          "id": "guard_job_accepted",
+          "text": "Consider it done.",
+          "set_flags": ["guard_job_started"],
+          "close": true
+        },
+        { "text": "Not my problem.", "action": "back" }
+      ]
+    },
+    "job_turn_in": {
+      "text": "Show me the proof.",
+      "choices": [
+        {
+          "text": "Here are the bones.",
+          "requires_items": [{ "item": "minecraft:bone", "count": 3 }],
+          "take_items": [{ "item": "minecraft:bone", "count": 3 }],
+          "give_items": [{ "item": "minecraft:emerald", "count": 2 }],
+          "clear_flags": ["guard_job_started"],
+          "set_flags": ["guard_job_done"],
+          "commands": ["say {npc} thanks {player} for clearing the wolves."],
+          "next": "job_done"
+        },
+        { "text": "Still working on it.", "close": true }
+      ]
+    },
+    "job_done": {
+      "sound": { "mode": "full", "full": "minecraft:entity.villager.celebrate", "volume": 0.8 },
+      "text": "&aWell done.&r <anim:wave>The town sleeps easier tonight.",
+      "choices": [{ "text": "Glad to help.", "close": true }]
+    },
+    "armory": {
+      "text": "We sell surplus gear to trusted folk.",
+      "choices": [
+        { "text": "Show me.", "trade": "guard_armory.json" },
+        { "text": "Back.", "action": "back" }
+      ]
+    }
+  }
+}
