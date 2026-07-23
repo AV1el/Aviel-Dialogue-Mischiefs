@@ -659,6 +659,8 @@ public class NpcDialogueScreen extends Screen {
                 playDialogueSound(control.payload(), currentSound().volume(), currentSound().pitch());
             } else if (control.kind() == ControlKind.ANIMATION && control.position() == this.visibleChars) {
                 playNpcDialogueAnimation(control.payload(), control.value() > 0);
+            } else if (control.kind() == ControlKind.MOVE && control.position() == this.visibleChars) {
+                sendNpcToPoint(control.payload());
             }
         }
         return paused;
@@ -730,7 +732,37 @@ public class NpcDialogueScreen extends Screen {
             AnimationSpec spec = parseAnimationSpec(raw);
             return spec.name().isBlank() ? null : new ControlTag(visiblePosition, ControlKind.ANIMATION, spec.repeat() ? 1 : 0, spec.name());
         }
+        if (raw.startsWith("moveto:") || raw.startsWith("moveto=")
+                || raw.startsWith("walkto:") || raw.startsWith("walkto=")
+                || raw.startsWith("goto:") || raw.startsWith("goto=")) {
+            String payload = parseMoveSpec(raw);
+            return payload.isBlank() ? null : new ControlTag(visiblePosition, ControlKind.MOVE, 0, payload);
+        }
         return null;
+    }
+
+    /**
+     * Accepts {@code <moveto:point>} and {@code <moveto:speed:point>}, returning
+     * {@code speed|point} for the handler. The speed word is optional and defaults to walk.
+     */
+    private static String parseMoveSpec(String raw) {
+        int separator = raw.indexOf(':');
+        if (separator < 0) {
+            separator = raw.indexOf('=');
+        }
+        if (separator < 0 || separator + 1 >= raw.length()) {
+            return "";
+        }
+
+        String spec = raw.substring(separator + 1).trim();
+        int speedSplit = spec.indexOf(':');
+        if (speedSplit < 0) {
+            return "walk|" + spec;
+        }
+
+        String speed = spec.substring(0, speedSplit).trim();
+        String point = spec.substring(speedSplit + 1).trim();
+        return point.isBlank() ? "" : speed + "|" + point;
     }
 
     private static AnimationSpec parseAnimationSpec(String raw) {
@@ -863,6 +895,23 @@ public class NpcDialogueScreen extends Screen {
             }
         }
         return 0;
+    }
+
+    /** Asks the server to walk the NPC; the payload is {@code speed|point} from the tag. */
+    private void sendNpcToPoint(String payload) {
+        if (payload == null || payload.isBlank()) {
+            return;
+        }
+
+        int split = payload.indexOf('|');
+        String speed = split < 0 ? "walk" : payload.substring(0, split);
+        String point = split < 0 ? payload : payload.substring(split + 1);
+        if (point.isBlank()) {
+            return;
+        }
+
+        net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                new net.aviel.dialogue.network.NpcMoveToPacket(this.npcUuid, point, speed));
     }
 
     private void playNpcDialogueAnimation(String emote, boolean repeat) {
@@ -1102,6 +1151,8 @@ public class NpcDialogueScreen extends Screen {
         SPEED,
         PAUSE,
         SOUND,
-        ANIMATION
+        ANIMATION,
+        /** Sends the NPC walking to a point of interest. */
+        MOVE
     }
 }

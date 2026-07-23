@@ -20,7 +20,7 @@ public final class NpcEditorService {
     private NpcEditorService() {
     }
 
-    /** Editing needs the same permission level as {@code /adm_npc} — ops or cheats. */
+    /** Editing needs the same permission level as {@code /npc} — ops or cheats. */
     public static boolean canEdit(ServerPlayer player) {
         return player != null && player.hasPermissions(Config.COMMAND_PERMISSION_LEVEL.get());
     }

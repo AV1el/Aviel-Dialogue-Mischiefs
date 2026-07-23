@@ -192,7 +192,7 @@ public final class NpcJsonEmoteClip {
             for (BodyPart value : values()) {
                 map.put(value.id.toLowerCase(Locale.ROOT), value);
             }
-            // EmoteCraft internals often refer to body as "torso".
+            // The keyframe format calls the body "torso" in some exports.
             map.put("torso", BODY);
             return map;
         }

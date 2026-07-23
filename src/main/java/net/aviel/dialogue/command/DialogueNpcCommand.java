@@ -7,7 +7,10 @@ import net.aviel.dialogue.entity.DialogueNpcEntity;
 import net.aviel.dialogue.npc.DialogueValidator;
 import net.aviel.dialogue.npc.NpcEmoteService;
 import net.aviel.dialogue.npc.NpcEquipment;
+import net.aviel.dialogue.npc.NpcTemplateService;
 import net.aviel.dialogue.npc.NpcTradeService;
+import net.aviel.dialogue.npc.poi.NpcPoiData;
+import net.aviel.dialogue.npc.poi.PointOfInterest;
 import net.aviel.dialogue.npc.storage.ConfigAssetPackBuilder;
 import net.aviel.dialogue.npc.storage.DialogueRepository;
 import net.aviel.dialogue.npc.storage.DialogueStorage;
@@ -23,58 +26,54 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * The single {@code /npc} command. Everything hangs off one root, one level deep, so tab
+ * completion shows a short, readable list rather than a wall of options.
+ */
 public final class DialogueNpcCommand {
+    private static final List<String> LIST_CATEGORIES =
+            List.of("npcs", "dialogues", "trades", "emotes", "templates", "points", "folders");
+
     private DialogueNpcCommand() {
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext) {
-        dispatcher.register(Commands.literal("adm_npc")
+        dispatcher.register(Commands.literal("npc")
                 .requires(source -> source.hasPermission(net.aviel.dialogue.Config.COMMAND_PERMISSION_LEVEL.get()))
-                .then(NpcEditCommands.npcSubtree())
+                .then(NpcEditCommands.spawnSubtree())
+                .then(NpcEditCommands.removeSubtree())
                 .then(NpcEditCommands.setSubtree())
-                .then(NpcEditCommands.templateSubtree())
                 .then(NpcEquipCommands.subtree(buildContext))
+                .then(NpcPoiCommands.subtree())
                 .then(Commands.literal("select")
                         .executes(context -> select(context.getSource(), ""))
+                        .then(Commands.literal("clear")
+                                .executes(context -> deselect(context.getSource())))
                         .then(Commands.argument("name", StringArgumentType.greedyString())
                                 .executes(context -> select(context.getSource(), StringArgumentType.getString(context, "name")))))
-                .then(Commands.literal("deselect")
-                        .executes(context -> deselect(context.getSource())))
                 .then(Commands.literal("info")
                         .executes(context -> info(context.getSource())))
-                .then(Commands.literal("dialogue")
-                        .then(Commands.literal("files")
-                                .executes(context -> files(context.getSource())))
-                        .then(Commands.literal("reload")
-                                .executes(context -> reload(context.getSource()))))
+                .then(Commands.literal("list")
+                        .executes(context -> list(context.getSource(), "npcs"))
+                        .then(Commands.argument("category", StringArgumentType.word())
+                                .suggests((context, builder) -> SharedSuggestionProvider.suggest(LIST_CATEGORIES, builder))
+                                .executes(context -> list(context.getSource(), StringArgumentType.getString(context, "category")))))
+                .then(Commands.literal("reload")
+                        .executes(context -> reload(context.getSource())))
                 .then(Commands.literal("validate")
                         .executes(context -> validate(context.getSource())))
                 .then(Commands.literal("emote")
-                        .then(Commands.literal("files")
-                                .executes(context -> emoteFiles(context.getSource())))
-                        .then(Commands.literal("play")
-                                .then(Commands.argument("file", StringArgumentType.word())
-                                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(NpcEmoteService.listEmoteFiles(context.getSource().getServer()), builder))
-                                        .executes(context -> playEmote(context.getSource(), StringArgumentType.getString(context, "file"), false))
-                                        .then(Commands.argument("loop", BoolArgumentType.bool())
-                                                .executes(context -> playEmote(context.getSource(), StringArgumentType.getString(context, "file"), BoolArgumentType.getBool(context, "loop"))))))
                         .then(Commands.literal("stop")
-                                .executes(context -> stopEmote(context.getSource()))))
+                                .executes(context -> stopEmote(context.getSource())))
+                        .then(Commands.argument("file", StringArgumentType.word())
+                                .suggests((context, builder) -> SharedSuggestionProvider.suggest(NpcEmoteService.listEmoteFiles(context.getSource().getServer()), builder))
+                                .executes(context -> playEmote(context.getSource(), StringArgumentType.getString(context, "file"), false))
+                                .then(Commands.argument("loop", BoolArgumentType.bool())
+                                        .executes(context -> playEmote(context.getSource(), StringArgumentType.getString(context, "file"), BoolArgumentType.getBool(context, "loop"))))))
                 .then(Commands.literal("trade")
-                        .then(Commands.literal("files")
-                                .executes(context -> tradeFiles(context.getSource())))
-                        .then(Commands.literal("open")
-                                .then(Commands.argument("file", StringArgumentType.word())
-                                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(NpcTradeService.listTradeFiles(context.getSource().getServer()), builder))
-                                        .executes(context -> openTrade(context.getSource(), StringArgumentType.getString(context, "file"))))))
-                .then(Commands.literal("entity")
-                        .then(Commands.literal("config_path")
-                                .executes(context -> entityConfigPath(context.getSource()))))
-                .then(Commands.literal("assets")
-                        .then(Commands.literal("path")
-                                .executes(context -> assetsPath(context.getSource())))
-                        .then(Commands.literal("reload")
-                                .executes(context -> reloadAssets(context.getSource())))));
+                        .then(Commands.argument("file", StringArgumentType.word())
+                                .suggests((context, builder) -> SharedSuggestionProvider.suggest(NpcTradeService.listTradeFiles(context.getSource().getServer()), builder))
+                                .executes(context -> openTrade(context.getSource(), StringArgumentType.getString(context, "file"))))));
     }
 
     private static int select(CommandSourceStack source, String name) {
@@ -90,7 +89,7 @@ public final class DialogueNpcCommand {
             return 0;
         }
         NpcSelections.select(player, npc);
-        source.sendSuccess(() -> Component.literal("Selected " + npc.getProfileName() + ". Edit commands now target it; /adm_npc deselect to release."), false);
+        source.sendSuccess(() -> Component.literal("Selected " + npc.getProfileName() + ". Edit commands now target it; /npc select clear to release."), false);
         return 1;
     }
 
@@ -133,21 +132,71 @@ public final class DialogueNpcCommand {
         return 1;
     }
 
-    private static int files(CommandSourceStack source) {
-        List<String> files = DialogueRepository.listDialogueFiles(source.getServer());
-        if (files.isEmpty()) {
-            source.sendSuccess(() -> Component.literal("No dialogue JSON files found in " + DialogueStorage.dialogueDirectory()), false);
+    private static int list(CommandSourceStack source, String category) {
+        return switch (category.toLowerCase(Locale.ROOT)) {
+            case "dialogues" -> listNames(source, "Dialogue files", DialogueRepository.listDialogueFiles(source.getServer()));
+            case "trades" -> listNames(source, "Trade files", NpcTradeService.listTradeFiles(source.getServer()));
+            case "emotes" -> listNames(source, "Emote files", NpcEmoteService.listEmoteFiles(source.getServer()));
+            case "templates" -> listNames(source, "NPC templates", NpcTemplateService.listNpcTemplates(source.getServer()));
+            case "points" -> listPoints(source);
+            case "folders" -> listFolders(source);
+            default -> listNpcs(source);
+        };
+    }
+
+    private static int listNames(CommandSourceStack source, String label, List<String> names) {
+        if (names.isEmpty()) {
+            source.sendSuccess(() -> Component.literal(label + ": none"), false);
             return 0;
         }
-        source.sendSuccess(() -> Component.literal("Dialogue files: " + String.join(", ", files)), false);
-        return files.size();
+        source.sendSuccess(() -> Component.literal(label + ": " + String.join(", ", names)), false);
+        return names.size();
+    }
+
+    private static int listNpcs(CommandSourceStack source) {
+        List<DialogueNpcEntity> npcs = NpcCommandTargets.nearbyNpcs(source, 64.0D);
+        if (npcs.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("No dialogue NPCs nearby."), false);
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Dialogue NPCs nearby:"), false);
+        for (DialogueNpcEntity npc : npcs) {
+            source.sendSuccess(() -> Component.literal("- " + npc.getProfileName()
+                    + " | dialogue=" + (npc.getDialogueFile().isBlank() ? "none" : npc.getDialogueFile())
+                    + " | model=" + npc.getPlayerModel()
+                    + " | scale=" + npc.getModelScale()
+                    + " | skin=" + (npc.getSkin().isBlank() ? "default" : npc.getSkin())
+                    + " | " + npc.blockPosition().toShortString()), false);
+        }
+        return npcs.size();
+    }
+
+    private static int listPoints(CommandSourceStack source) {
+        List<PointOfInterest> points = NpcPoiData.get(source.getServer()).all();
+        if (points.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("No points of interest defined."), false);
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Points of interest:"), false);
+        for (PointOfInterest point : points) {
+            source.sendSuccess(() -> Component.literal("- " + point.describe()), false);
+        }
+        return points.size();
+    }
+
+    private static int listFolders(CommandSourceStack source) {
+        source.sendSuccess(() -> Component.literal("Config root: " + DialogueStorage.rootDirectory()), false);
+        source.sendSuccess(() -> Component.literal("Skins: " + DialogueStorage.skinDirectory()), false);
+        source.sendSuccess(() -> Component.literal("Sounds: " + DialogueStorage.soundDirectory()), false);
+        source.sendSuccess(() -> Component.literal("Generated resource pack: " + DialogueStorage.resourcePackDirectory()), false);
+        return 1;
     }
 
     private static int reload(CommandSourceStack source) {
         DialogueRepository.invalidateCaches();
         NpcTradeService.invalidateCaches();
         ConfigAssetPackBuilder.prepare();
-        source.sendSuccess(() -> Component.literal("Cleared dialogue caches and regenerated config assets."), true);
+        source.sendSuccess(() -> Component.literal("Cleared dialogue caches and regenerated config assets. Reload client resources with F3+T to pick up new skins and sounds."), true);
         return validate(source);
     }
 
@@ -178,16 +227,6 @@ public final class DialogueNpcCommand {
         }
     }
 
-    private static int emoteFiles(CommandSourceStack source) {
-        List<String> files = NpcEmoteService.listEmoteFiles(source.getServer());
-        if (files.isEmpty()) {
-            source.sendSuccess(() -> Component.literal("No emote JSON files found in " + NpcEmoteService.getGlobalEmoteDirectory()), false);
-            return 0;
-        }
-        source.sendSuccess(() -> Component.literal("Emote files: " + String.join(", ", files)), false);
-        return files.size();
-    }
-
     private static int playEmote(CommandSourceStack source, String file, boolean loop) {
         DialogueNpcEntity npc = NpcCommandTargets.requireTarget(source);
         if (npc == null) {
@@ -214,16 +253,6 @@ public final class DialogueNpcCommand {
         return 1;
     }
 
-    private static int tradeFiles(CommandSourceStack source) {
-        List<String> files = NpcTradeService.listTradeFiles(source.getServer());
-        if (files.isEmpty()) {
-            source.sendSuccess(() -> Component.literal("No trade JSON files found in " + NpcTradeService.getGlobalTradeDirectory()), false);
-            return 0;
-        }
-        source.sendSuccess(() -> Component.literal("Trade files: " + String.join(", ", files)), false);
-        return files.size();
-    }
-
     private static int openTrade(CommandSourceStack source, String file) {
         if (!(source.getEntity() instanceof ServerPlayer player)) {
             source.sendFailure(Component.literal("Only players can open a trade screen."));
@@ -239,24 +268,6 @@ public final class DialogueNpcCommand {
             return 0;
         }
         NpcTradeService.openTrade(player, npc, fileName);
-        return 1;
-    }
-
-    private static int entityConfigPath(CommandSourceStack source) {
-        source.sendSuccess(() -> Component.literal("Entity dialogue config path: " + DialogueStorage.entityDialogueConfigPath()), false);
-        return 1;
-    }
-
-    private static int assetsPath(CommandSourceStack source) {
-        source.sendSuccess(() -> Component.literal("ADM skin folder: " + DialogueStorage.skinDirectory()), false);
-        source.sendSuccess(() -> Component.literal("ADM sound folder: " + DialogueStorage.soundDirectory()), false);
-        source.sendSuccess(() -> Component.literal("Generated resource pack: " + DialogueStorage.resourcePackDirectory()), false);
-        return 1;
-    }
-
-    private static int reloadAssets(CommandSourceStack source) {
-        ConfigAssetPackBuilder.prepare();
-        source.sendSuccess(() -> Component.literal("Regenerated ADM config assets. Reload client resources with F3+T or restart the client to pick up new textures and sounds."), true);
         return 1;
     }
 }

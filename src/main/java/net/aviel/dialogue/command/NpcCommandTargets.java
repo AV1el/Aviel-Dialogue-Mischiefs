@@ -21,7 +21,7 @@ final class NpcCommandTargets {
     static DialogueNpcEntity requireTarget(CommandSourceStack source) {
         DialogueNpcEntity npc = NpcSelections.resolveTarget(source);
         if (npc == null) {
-            source.sendFailure(Component.literal("No dialogue NPC targeted. Select one with /adm_npc select, look at one, or stand within 8 blocks."));
+            source.sendFailure(Component.literal("No dialogue NPC targeted. Select one with /npc select, look at one, or stand within 8 blocks."));
         }
         return npc;
     }

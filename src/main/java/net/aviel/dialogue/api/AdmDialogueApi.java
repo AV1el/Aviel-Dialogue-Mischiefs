@@ -7,15 +7,11 @@ import net.aviel.dialogue.npc.NpcTemplateService;
 import net.aviel.dialogue.npc.NpcTradeService;
 import net.aviel.dialogue.npc.storage.DialogueRepository;
 import net.aviel.dialogue.npc.storage.DialogueStorage;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
 
 import java.nio.file.Path;
-import java.util.Map;
 
 /**
  * Public entry point for other mods. Dialogues, trades and emotes are referenced either by
@@ -43,41 +39,12 @@ public final class AdmDialogueApi {
         return DialogueStorage.npcTemplateDirectory();
     }
 
-    public static Path globalEntityDialogueConfigPath() {
-        return DialogueStorage.entityDialogueConfigPath();
-    }
-
     public static Path globalTradeDirectory() {
         return DialogueStorage.tradeDirectory();
     }
 
     public static Path globalEmoteDirectory() {
         return DialogueStorage.emoteDirectory();
-    }
-
-    public static void registerEntityDialogue(EntityType<?> entityType, String dialogueFile) {
-        if (entityType == null) {
-            return;
-        }
-        registerEntityDialogue(BuiltInRegistries.ENTITY_TYPE.getKey(entityType), dialogueFile);
-    }
-
-    public static void registerEntityDialogue(ResourceLocation entityTypeId, String dialogueFile) {
-        NpcDialogueService.registerEntityDialogue(entityTypeId, dialogueFile);
-    }
-
-    public static void clearEntityDialogue(EntityType<?> entityType) {
-        if (entityType != null) {
-            NpcDialogueService.clearEntityDialogue(BuiltInRegistries.ENTITY_TYPE.getKey(entityType));
-        }
-    }
-
-    public static void setDefaultEntityDialogue(String dialogueFile) {
-        NpcDialogueService.setDefaultEntityDialogue(dialogueFile);
-    }
-
-    public static Map<ResourceLocation, String> registeredEntityDialogues() {
-        return NpcDialogueService.registeredEntityDialogues();
     }
 
     /**

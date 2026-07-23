@@ -1,8 +1,5 @@
 package net.aviel.dialogue.npc;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.aviel.dialogue.AvielsDialogueMod;
 import net.aviel.dialogue.api.event.DialogueChoiceEvent;
@@ -13,9 +10,6 @@ import net.aviel.dialogue.npc.dialogue.NpcDialogueDefinition;
 import net.aviel.dialogue.npc.dialogue.NpcDialoguePlayerData;
 import net.aviel.dialogue.npc.storage.ConfigAssetPackBuilder;
 import net.aviel.dialogue.npc.storage.DialogueRepository;
-import net.aviel.dialogue.npc.storage.DialogueStorage;
-import net.aviel.dialogue.util.JsonReaders;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -24,18 +18,9 @@ import net.minecraft.world.entity.Entity;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.LinkedHashMap;
 import java.util.Locale;
-import java.util.Map;
 
 public final class NpcDialogueService {
-    private static final Map<ResourceLocation, String> API_ENTITY_DIALOGUES = new LinkedHashMap<>();
-    private static String apiDefaultEntityDialogue = "";
-
     private NpcDialogueService() {
     }
 
@@ -219,71 +204,6 @@ public final class NpcDialogueService {
         }
         DialogueItemHandler.giveItemRules(player, choice.giveItems());
         return true;
-    }
-
-    public static String resolveEntityDialogueFile(MinecraftServer server, Entity target) {
-        if (server == null || target == null || target instanceof DialogueNpcEntity) {
-            return "";
-        }
-        ResourceLocation typeId = BuiltInRegistries.ENTITY_TYPE.getKey(target.getType());
-        String apiDialogue = normalizeReference(API_ENTITY_DIALOGUES.get(typeId));
-        if (!apiDialogue.isBlank() && DialogueRepository.resolveDialogueFileName(server, apiDialogue) != null) {
-            return apiDialogue;
-        }
-        String apiDefault = normalizeReference(apiDefaultEntityDialogue);
-        if (!apiDefault.isBlank() && DialogueRepository.resolveDialogueFileName(server, apiDefault) != null) {
-            return apiDefault;
-        }
-        DialogueStorage.ensureDirectories();
-        Path path = DialogueStorage.entityDialogueConfigPath();
-        if (!Files.isRegularFile(path)) {
-            return "";
-        }
-        try {
-            JsonElement element = JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8));
-            if (!element.isJsonObject()) {
-                return "";
-            }
-            JsonObject root = element.getAsJsonObject();
-            String direct = JsonReaders.readMapping(root, "entities", typeId.toString());
-            if (direct.isBlank()) {
-                direct = JsonReaders.readMapping(root, "entity_types", typeId.toString());
-            }
-            if (direct.isBlank()) {
-                direct = JsonReaders.readString(root, "default", "");
-            }
-            String normalized = normalizeReference(direct);
-            return normalized.isBlank() || DialogueRepository.resolveDialogueFileName(server, normalized) == null ? "" : normalized;
-        } catch (IOException | RuntimeException ex) {
-            AvielsDialogueMod.LOGGER.warn("Could not read entity dialogue mappings from {}", path, ex);
-            return "";
-        }
-    }
-
-    public static void registerEntityDialogue(ResourceLocation entityTypeId, String dialogueFile) {
-        if (entityTypeId == null) {
-            return;
-        }
-        String normalized = normalizeReference(dialogueFile);
-        if (normalized.isBlank()) {
-            API_ENTITY_DIALOGUES.remove(entityTypeId);
-            return;
-        }
-        API_ENTITY_DIALOGUES.put(entityTypeId, normalized);
-    }
-
-    public static void clearEntityDialogue(ResourceLocation entityTypeId) {
-        if (entityTypeId != null) {
-            API_ENTITY_DIALOGUES.remove(entityTypeId);
-        }
-    }
-
-    public static void setDefaultEntityDialogue(String dialogueFile) {
-        apiDefaultEntityDialogue = normalizeReference(dialogueFile);
-    }
-
-    public static Map<ResourceLocation, String> registeredEntityDialogues() {
-        return Map.copyOf(API_ENTITY_DIALOGUES);
     }
 
     public static String dialogueChoiceKey(String dialogueFile, String nodeId, String choiceKey) {

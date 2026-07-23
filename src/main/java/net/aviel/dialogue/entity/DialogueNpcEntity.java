@@ -1,8 +1,11 @@
 package net.aviel.dialogue.entity;
 
+import net.aviel.dialogue.entity.ai.NpcWalkToPoiGoal;
 import net.aviel.dialogue.npc.NpcDialogueService;
 import net.aviel.dialogue.npc.NpcEditorService;
 import net.aviel.dialogue.npc.NpcTemplateService;
+import net.aviel.dialogue.npc.poi.MoveSpeed;
+import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -41,6 +44,10 @@ public class DialogueNpcEntity extends PathfinderMob {
     private float homeYaw = 0.0F;
     private int lastLookAtPlayerTick = -RETURN_LOOK_DELAY_TICKS;
 
+    /** Set while the NPC is walking somewhere a dialogue sent it. */
+    private BlockPos moveDestination;
+    private MoveSpeed moveSpeed = MoveSpeed.WALK;
+
     public DialogueNpcEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
         this.setPersistenceRequired();
@@ -51,7 +58,10 @@ public class DialogueNpcEntity extends PathfinderMob {
     public static AttributeSupplier.Builder createAttributes() {
         return PathfinderMob.createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0D)
-                .add(Attributes.MOVEMENT_SPEED, 0.0D);
+                // Villager pace. The NPC still stands still until a dialogue sends it somewhere,
+                // because nothing moves it without a destination.
+                .add(Attributes.MOVEMENT_SPEED, 0.5D)
+                .add(Attributes.FOLLOW_RANGE, 64.0D);
     }
 
     @Override
@@ -71,6 +81,7 @@ public class DialogueNpcEntity extends PathfinderMob {
 
     @Override
     protected void registerGoals() {
+        this.goalSelector.addGoal(1, new NpcWalkToPoiGoal(this));
     }
 
     @Override
@@ -249,6 +260,43 @@ public class DialogueNpcEntity extends PathfinderMob {
         return value;
     }
 
+    /**
+     * Where the NPC is walking, or {@code null} when it is standing still. Server-side only:
+     * the client never needs it, the movement itself is synced like any other entity motion.
+     */
+    public BlockPos getMoveDestination() {
+        return this.moveDestination;
+    }
+
+    public double getMoveSpeedMultiplier() {
+        return this.moveSpeed.multiplier();
+    }
+
+    /** Sends the NPC walking; the goal picks it up on the next tick. */
+    public void walkTo(BlockPos destination, MoveSpeed speed) {
+        this.moveDestination = destination == null ? null : destination.immutable();
+        this.moveSpeed = speed == null ? MoveSpeed.WALK : speed;
+        if (this.moveDestination == null) {
+            this.getNavigation().stop();
+        }
+    }
+
+    /** Stops the NPC where it stands, dropping whatever destination it had. */
+    public void stopWalking() {
+        walkTo(null, MoveSpeed.WALK);
+    }
+
+    public boolean isWalking() {
+        return this.moveDestination != null;
+    }
+
+    /** Called by the goal on arrival: clears the destination and faces the way it was set up to. */
+    public void onReachedDestination() {
+        this.moveDestination = null;
+        this.getNavigation().stop();
+        setHomeYaw(this.getYRot());
+    }
+
     public String getProfileName() {
         Component name = this.getCustomName();
         return name == null ? "NPC" : name.getString();
@@ -268,6 +316,11 @@ public class DialogueNpcEntity extends PathfinderMob {
         tag.putString("EmoteFile", getNpcEmoteFileName());
         tag.putLong("EmoteStartTick", getNpcEmoteStartTick());
         tag.putBoolean("EmoteRepeat", isNpcEmoteRepeatEnabled());
+        if (this.moveDestination != null) {
+            tag.putIntArray("MoveTo", new int[] {
+                    this.moveDestination.getX(), this.moveDestination.getY(), this.moveDestination.getZ() });
+            tag.putString("MoveSpeed", this.moveSpeed.name());
+        }
     }
 
     @Override
@@ -287,14 +340,32 @@ public class DialogueNpcEntity extends PathfinderMob {
         } else {
             playNpcEmote(emoteFile, tag.getLong("EmoteStartTick"), tag.getBoolean("EmoteRepeat"));
         }
+        readMoveDestination(tag);
         this.setCustomNameVisible(true);
         this.setNoAi(false);
         this.setPersistenceRequired();
         refreshDimensions();
     }
 
+    /** Restores an interrupted walk so a server restart does not strand the NPC mid-route. */
+    private void readMoveDestination(CompoundTag tag) {
+        int[] destination = tag.getIntArray("MoveTo");
+        if (destination.length != 3) {
+            this.moveDestination = null;
+            return;
+        }
+
+        this.moveDestination = new BlockPos(destination[0], destination[1], destination[2]);
+        try {
+            this.moveSpeed = MoveSpeed.valueOf(tag.getString("MoveSpeed"));
+        } catch (IllegalArgumentException ignored) {
+            this.moveSpeed = MoveSpeed.WALK;
+        }
+    }
+
     private void updateLookTarget() {
-        if (this.level().isClientSide) {
+        // While walking the goal owns the head, otherwise the NPC would moonwalk staring at players.
+        if (this.level().isClientSide || isWalking()) {
             return;
         }
         float distance = getLookDistance();

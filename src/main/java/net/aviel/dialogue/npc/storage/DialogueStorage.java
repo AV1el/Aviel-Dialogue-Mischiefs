@@ -25,7 +25,6 @@ public final class DialogueStorage {
     private static final String SOUND_FOLDER = "sounds";
     private static final String LANG_FOLDER = "lang";
     private static final String RESOURCE_PACK_FOLDER = "resources";
-    private static final String ENTITY_DIALOGUES_FILE = "entity_dialogues.json";
 
     private DialogueStorage() {
     }
@@ -64,10 +63,6 @@ public final class DialogueStorage {
 
     public static Path resourcePackDirectory() {
         return rootDirectory().resolve(RESOURCE_PACK_FOLDER);
-    }
-
-    public static Path entityDialogueConfigPath() {
-        return rootDirectory().resolve(ENTITY_DIALOGUES_FILE);
     }
 
     public static void ensureDirectories() {

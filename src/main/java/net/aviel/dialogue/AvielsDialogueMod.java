@@ -7,12 +7,12 @@ import net.aviel.dialogue.entity.DialogueNpcEntity;
 import net.aviel.dialogue.network.NpcDialogueAnimationPacket;
 import net.aviel.dialogue.network.NpcDialogueChoicePacket;
 import net.aviel.dialogue.network.NpcEditorActionPacket;
+import net.aviel.dialogue.network.NpcMoveToPacket;
 import net.aviel.dialogue.network.OpenNpcEditorPacket;
 import net.aviel.dialogue.network.NpcEmoteSyncPacket;
 import net.aviel.dialogue.network.NpcTradeActionPacket;
 import net.aviel.dialogue.network.OpenNpcDialoguePacket;
 import net.aviel.dialogue.network.OpenNpcTradePacket;
-import net.aviel.dialogue.npc.DialogueEntityEvents;
 import net.aviel.dialogue.npc.DialogueSessionManager;
 import net.aviel.dialogue.npc.NpcTradeService;
 import net.aviel.dialogue.npc.storage.AdmDataPackManager;
@@ -52,6 +52,23 @@ public class AvielsDialogueMod {
 
     public static final DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(Registries.ENTITY_TYPE, MODID);
 
+    public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MODID);
+
+    public static final DeferredRegister<net.minecraft.world.item.CreativeModeTab> CREATIVE_TABS =
+            DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
+
+    /** Places the points NPCs walk to; see {@link net.aviel.dialogue.item.PoiMarkerItem}. */
+    public static final DeferredHolder<net.minecraft.world.item.Item, net.minecraft.world.item.Item> POI_MARKER =
+            ITEMS.register("poi_marker", () -> new net.aviel.dialogue.item.PoiMarkerItem(
+                    new net.minecraft.world.item.Item.Properties().stacksTo(1)));
+
+    public static final DeferredHolder<net.minecraft.world.item.CreativeModeTab, net.minecraft.world.item.CreativeModeTab> TAB =
+            CREATIVE_TABS.register("adm", () -> net.minecraft.world.item.CreativeModeTab.builder()
+                    .title(Component.translatable("itemGroup.adm"))
+                    .icon(() -> new net.minecraft.world.item.ItemStack(POI_MARKER.get()))
+                    .displayItems((parameters, output) -> output.accept(POI_MARKER.get()))
+                    .build());
+
     public static final DeferredHolder<EntityType<?>, EntityType<DialogueNpcEntity>> DIALOGUE_NPC = ENTITY_TYPES.register(
             "dialogue_npc",
             () -> EntityType.Builder.of(DialogueNpcEntity::new, MobCategory.MISC)
@@ -64,13 +81,14 @@ public class AvielsDialogueMod {
     public AvielsDialogueMod(IEventBus modEventBus, net.neoforged.fml.ModContainer modContainer) {
         modContainer.registerConfig(net.neoforged.fml.config.ModConfig.Type.COMMON, Config.SPEC);
         ENTITY_TYPES.register(modEventBus);
+        ITEMS.register(modEventBus);
+        CREATIVE_TABS.register(modEventBus);
         modEventBus.addListener(this::addPackFinders);
         modEventBus.addListener(this::registerPayloads);
         modEventBus.addListener(this::registerAttributes);
         NeoForge.EVENT_BUS.addListener(this::registerCommands);
         NeoForge.EVENT_BUS.addListener(this::addReloadListeners);
         NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedOut);
-        NeoForge.EVENT_BUS.addListener(DialogueEntityEvents::onEntityInteract);
         AdmDataPackManager.DIALOGUES.addInvalidationListener(DialogueRepository::invalidateCaches);
         AdmDataPackManager.TRADES.addInvalidationListener(NpcTradeService::invalidateCaches);
     }
@@ -89,6 +107,7 @@ public class AvielsDialogueMod {
         registrar.playToServer(NpcDialogueAnimationPacket.TYPE, NpcDialogueAnimationPacket.STREAM_CODEC, NpcDialogueAnimationPacket::handle);
         registrar.playToClient(OpenNpcEditorPacket.TYPE, OpenNpcEditorPacket.STREAM_CODEC, OpenNpcEditorPacket::handle);
         registrar.playToServer(NpcEditorActionPacket.TYPE, NpcEditorActionPacket.STREAM_CODEC, NpcEditorActionPacket::handle);
+        registrar.playToServer(NpcMoveToPacket.TYPE, NpcMoveToPacket.STREAM_CODEC, NpcMoveToPacket::handle);
     }
 
     private void registerCommands(RegisterCommandsEvent event) {

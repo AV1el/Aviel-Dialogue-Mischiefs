@@ -21,85 +21,95 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
-/** {@code /adm_npc npc|set|template} subcommands that spawn or edit dialogue NPCs. */
+/** Spawning, removal and the {@code /npc set} property tree for dialogue NPCs. */
 final class NpcEditCommands {
     private NpcEditCommands() {
     }
 
-    static LiteralArgumentBuilder<CommandSourceStack> npcSubtree() {
-        return Commands.literal("npc")
-                .then(Commands.literal("spawn")
-                        .then(Commands.argument("name", StringArgumentType.greedyString())
-                                .executes(context -> spawn(context.getSource(), StringArgumentType.getString(context, "name")))))
-                .then(Commands.literal("remove")
-                        .executes(context -> remove(context.getSource())))
-                .then(Commands.literal("remove_nearest")
-                        .executes(context -> remove(context.getSource())))
-                .then(Commands.literal("remove_all")
-                        .then(Commands.argument("radius", IntegerArgumentType.integer(1, 128))
-                                .executes(context -> removeAll(context.getSource(), IntegerArgumentType.getInteger(context, "radius")))))
-                .then(Commands.literal("rename")
-                        .then(Commands.argument("name", StringArgumentType.greedyString())
-                                .executes(context -> rename(context.getSource(), StringArgumentType.getString(context, "name")))))
-                .then(Commands.literal("tp_here")
-                        .executes(context -> teleportHere(context.getSource())))
-                .then(Commands.literal("save_template")
-                        .then(Commands.argument("id", StringArgumentType.word())
-                                .executes(context -> saveTemplate(context.getSource(), StringArgumentType.getString(context, "id"), false))
-                                .then(Commands.literal("force")
-                                        .executes(context -> saveTemplate(context.getSource(), StringArgumentType.getString(context, "id"), true)))))
-                .then(Commands.literal("list")
-                        .executes(context -> list(context.getSource())));
+    /** {@code /npc spawn <name> [template]}. */
+    static LiteralArgumentBuilder<CommandSourceStack> spawnSubtree() {
+        return Commands.literal("spawn")
+                .then(Commands.argument("name", StringArgumentType.string())
+                        .executes(context -> spawn(context.getSource(), StringArgumentType.getString(context, "name"), ""))
+                        .then(Commands.argument("template", StringArgumentType.word())
+                                .suggests((context, builder) -> SharedSuggestionProvider.suggest(NpcTemplateService.listNpcTemplates(context.getSource().getServer()), builder))
+                                .executes(context -> spawn(context.getSource(), StringArgumentType.getString(context, "name"), StringArgumentType.getString(context, "template")))));
     }
 
+    /**
+     * {@code /npc remove} (targeted), {@code /npc remove <name>} (a specific nearby NPC picked
+     * from tab completion) or {@code /npc remove all <radius>} (everything in range).
+     */
+    static LiteralArgumentBuilder<CommandSourceStack> removeSubtree() {
+        return Commands.literal("remove")
+                .executes(context -> remove(context.getSource()))
+                .then(Commands.literal("all")
+                        .then(Commands.argument("radius", IntegerArgumentType.integer(1, 128))
+                                .executes(context -> removeAll(context.getSource(), IntegerArgumentType.getInteger(context, "radius")))))
+                .then(Commands.argument("name", StringArgumentType.string())
+                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(nearbyNpcNames(context.getSource()), builder))
+                        .executes(context -> removeByName(context.getSource(), StringArgumentType.getString(context, "name"))));
+    }
+
+    /** Distinct names of dialogue NPCs within reach, for {@code remove}/{@code select} completion. */
+    private static List<String> nearbyNpcNames(CommandSourceStack source) {
+        return NpcCommandTargets.nearbyNpcs(source, 64.0D).stream()
+                .map(DialogueNpcEntity::getProfileName)
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
+    /** {@code /npc set <property> ...} — everything that edits the targeted NPC in place. */
     static LiteralArgumentBuilder<CommandSourceStack> setSubtree() {
         return Commands.literal("set")
                 .then(Commands.literal("dialogue")
+                        .executes(context -> setDialogue(context.getSource(), ""))
                         .then(Commands.argument("file", StringArgumentType.word())
                                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(DialogueRepository.listDialogueFiles(context.getSource().getServer()), builder))
                                 .executes(context -> setDialogue(context.getSource(), StringArgumentType.getString(context, "file")))))
-                .then(Commands.literal("clear_dialogue")
-                        .executes(context -> setDialogue(context.getSource(), "")))
-                .then(Commands.literal("scale")
-                        .then(Commands.argument("scale", FloatArgumentType.floatArg(0.25F, 3.0F))
-                                .executes(context -> setScale(context.getSource(), FloatArgumentType.getFloat(context, "scale")))))
-                .then(Commands.literal("invulnerable")
-                        .then(Commands.argument("value", BoolArgumentType.bool())
-                                .executes(context -> setInvulnerable(context.getSource(), BoolArgumentType.getBool(context, "value")))))
-                .then(Commands.literal("look_distance")
-                        .then(Commands.argument("distance", FloatArgumentType.floatArg(0.0F, 64.0F))
-                                .executes(context -> setLookDistance(context.getSource(), FloatArgumentType.getFloat(context, "distance")))))
                 .then(Commands.literal("skin")
+                        .executes(context -> setSkin(context.getSource(), ""))
                         .then(Commands.argument("texture", StringArgumentType.word())
                                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(DialogueStorage.listSkinFiles(), builder))
                                 .executes(context -> setSkin(context.getSource(), StringArgumentType.getString(context, "texture")))))
-                .then(Commands.literal("clear_skin")
-                        .executes(context -> setSkin(context.getSource(), "")))
                 .then(Commands.literal("model")
                         .then(Commands.argument("model", StringArgumentType.word())
                                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(List.of("steve", "alex"), builder))
-                                .executes(context -> setModel(context.getSource(), StringArgumentType.getString(context, "model")))));
-    }
-
-    static LiteralArgumentBuilder<CommandSourceStack> templateSubtree() {
-        return Commands.literal("template")
-                .then(Commands.literal("list")
-                        .executes(context -> templates(context.getSource())))
-                .then(Commands.literal("apply")
+                                .executes(context -> setModel(context.getSource(), StringArgumentType.getString(context, "model")))))
+                .then(Commands.literal("scale")
+                        .then(Commands.argument("scale", FloatArgumentType.floatArg(0.25F, 3.0F))
+                                .executes(context -> setScale(context.getSource(), FloatArgumentType.getFloat(context, "scale")))))
+                .then(Commands.literal("look")
+                        .then(Commands.argument("distance", FloatArgumentType.floatArg(0.0F, 64.0F))
+                                .executes(context -> setLookDistance(context.getSource(), FloatArgumentType.getFloat(context, "distance")))))
+                .then(Commands.literal("invulnerable")
+                        .then(Commands.argument("value", BoolArgumentType.bool())
+                                .executes(context -> setInvulnerable(context.getSource(), BoolArgumentType.getBool(context, "value")))))
+                .then(Commands.literal("name")
+                        .then(Commands.argument("name", StringArgumentType.greedyString())
+                                .executes(context -> rename(context.getSource(), StringArgumentType.getString(context, "name")))))
+                .then(Commands.literal("template")
                         .then(Commands.argument("template", StringArgumentType.word())
                                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(NpcTemplateService.listNpcTemplates(context.getSource().getServer()), builder))
                                 .executes(context -> applyTemplate(context.getSource(), StringArgumentType.getString(context, "template")))))
-                .then(Commands.literal("spawn")
-                        .then(Commands.argument("template", StringArgumentType.word())
-                                .suggests((context, builder) -> SharedSuggestionProvider.suggest(NpcTemplateService.listNpcTemplates(context.getSource().getServer()), builder))
-                                .executes(context -> spawnTemplate(context.getSource(), StringArgumentType.getString(context, "template")))))
-                .then(Commands.literal("spawn_aviel")
-                        .executes(context -> spawnTemplate(context.getSource(), NpcTemplateService.AVIEL_TEMPLATE_ID)));
+                .then(Commands.literal("here")
+                        .executes(context -> teleportHere(context.getSource())))
+                .then(Commands.literal("save")
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(context -> saveTemplate(context.getSource(), StringArgumentType.getString(context, "id"), false))
+                                .then(Commands.literal("force")
+                                        .executes(context -> saveTemplate(context.getSource(), StringArgumentType.getString(context, "id"), true)))));
     }
 
-    private static int spawn(CommandSourceStack source, String name) {
+    private static int spawn(CommandSourceStack source, String name, String templateId) {
+        if (!templateId.isBlank()) {
+            return spawnFromTemplate(source, name, templateId);
+        }
         DialogueNpcEntity npc = AvielsDialogueMod.DIALOGUE_NPC.get().create(source.getLevel());
         if (npc == null) {
             return 0;
@@ -116,14 +126,7 @@ final class NpcEditCommands {
         return 1;
     }
 
-    /** Spawned NPCs become the sender's selection so follow-up edit commands hit them. */
-    private static void selectSpawned(CommandSourceStack source, DialogueNpcEntity npc) {
-        if (source.getEntity() instanceof ServerPlayer player) {
-            NpcSelections.select(player, npc);
-        }
-    }
-
-    private static int spawnTemplate(CommandSourceStack source, String templateId) {
+    private static int spawnFromTemplate(CommandSourceStack source, String name, String templateId) {
         try {
             NpcTemplateService.NpcTemplate template = NpcTemplateService.loadNpcTemplate(source.getServer(), templateId);
             DialogueNpcEntity npc = AvielsDialogueMod.DIALOGUE_NPC.get().create(source.getLevel());
@@ -133,13 +136,23 @@ final class NpcEditCommands {
             npc.moveTo(source.getPosition().x, source.getPosition().y, source.getPosition().z, source.getRotation().y, 0.0F);
             npc.setHomeYaw(source.getRotation().y);
             NpcTemplateService.applyTemplate(npc, template);
+            if (!name.isBlank()) {
+                npc.setCustomName(Component.literal(name.trim()));
+            }
             source.getLevel().addFreshEntity(npc);
             selectSpawned(source, npc);
-            source.sendSuccess(() -> Component.literal("Spawned NPC template: " + template.id()), true);
+            source.sendSuccess(() -> Component.literal("Spawned " + npc.getProfileName() + " from template " + template.id()), true);
             return 1;
         } catch (Exception ex) {
             source.sendFailure(Component.literal("Template error: " + NpcCommandTargets.message(ex)));
             return 0;
+        }
+    }
+
+    /** Spawned NPCs become the sender's selection so follow-up edit commands hit them. */
+    private static void selectSpawned(CommandSourceStack source, DialogueNpcEntity npc) {
+        if (source.getEntity() instanceof ServerPlayer player) {
+            NpcSelections.select(player, npc);
         }
     }
 
@@ -244,6 +257,22 @@ final class NpcEditCommands {
         return 1;
     }
 
+    private static int removeByName(CommandSourceStack source, String name) {
+        String needle = name.trim().toLowerCase(Locale.ROOT);
+        DialogueNpcEntity npc = NpcCommandTargets.nearbyNpcs(source, 64.0D).stream()
+                .filter(candidate -> candidate.getProfileName().toLowerCase(Locale.ROOT).contains(needle))
+                .min(Comparator.comparingDouble(candidate -> candidate.distanceToSqr(source.getPosition())))
+                .orElse(null);
+        if (npc == null) {
+            source.sendFailure(Component.literal("No dialogue NPC named '" + name + "' within 64 blocks."));
+            return 0;
+        }
+        String removed = npc.getProfileName();
+        npc.discard();
+        source.sendSuccess(() -> Component.literal("Removed dialogue NPC: " + removed), true);
+        return 1;
+    }
+
     private static int removeAll(CommandSourceStack source, int radius) {
         List<DialogueNpcEntity> npcs = NpcCommandTargets.nearbyNpcs(source, radius);
         for (DialogueNpcEntity npc : npcs) {
@@ -302,31 +331,4 @@ final class NpcEditCommands {
             return 0;
         }
     }
-
-    private static int list(CommandSourceStack source) {
-        List<DialogueNpcEntity> npcs = NpcCommandTargets.nearbyNpcs(source, 64.0D);
-        if (npcs.isEmpty()) {
-            source.sendSuccess(() -> Component.literal("No dialogue NPCs nearby."), false);
-            return 0;
-        }
-        source.sendSuccess(() -> Component.literal("Dialogue NPCs nearby:"), false);
-        for (DialogueNpcEntity npc : npcs) {
-            source.sendSuccess(() -> Component.literal("- " + npc.getProfileName()
-                    + " | dialogue=" + npc.getDialogueFile()
-                    + " | model=" + npc.getPlayerModel()
-                    + " | scale=" + npc.getModelScale()
-                    + " | skin=" + (npc.getSkin().isBlank() ? "default" : npc.getSkin())
-                    + " | invulnerable=" + npc.isDialogueInvulnerable()
-                    + " | look=" + npc.getLookDistance()
-                    + " | " + npc.blockPosition().toShortString()), false);
-        }
-        return npcs.size();
-    }
-
-    private static int templates(CommandSourceStack source) {
-        List<String> templates = NpcTemplateService.listNpcTemplates(source.getServer());
-        source.sendSuccess(() -> Component.literal("NPC templates: " + String.join(", ", templates)), false);
-        return templates.size();
-    }
-
 }

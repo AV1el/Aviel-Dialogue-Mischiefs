@@ -19,7 +19,7 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.Map;
 
-/** {@code /adm_npc equip} — armor and held items on the targeted NPC. */
+/** {@code /npc equip} — armor and held items on the targeted NPC. */
 final class NpcEquipCommands {
     private NpcEquipCommands() {
     }
@@ -71,12 +71,12 @@ final class NpcEquipCommands {
             return 0;
         }
         if (!(source.getEntity() instanceof ServerPlayer player)) {
-            source.sendFailure(Component.literal("Only players can equip their held item. Use /adm_npc equip <slot> <item>."));
+            source.sendFailure(Component.literal("Only players can equip their held item. Use /npc equip <slot> <item>."));
             return 0;
         }
         ItemStack held = player.getMainHandItem();
         if (held.isEmpty()) {
-            source.sendFailure(Component.literal("Hold the item you want to equip, or use /adm_npc equip <slot> <item>."));
+            source.sendFailure(Component.literal("Hold the item you want to equip, or use /npc equip <slot> <item>."));
             return 0;
         }
         ItemStack copy = held.copy();

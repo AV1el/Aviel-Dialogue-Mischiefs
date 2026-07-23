@@ -22,13 +22,6 @@ public final class JsonReaders {
         return value != null && value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber() ? value.getAsFloat() : fallback;
     }
 
-    public static String readMapping(JsonObject root, String objectKey, String mappingKey) {
-        if (root == null || !root.has(objectKey) || !root.get(objectKey).isJsonObject()) {
-            return "";
-        }
-        return readString(root.getAsJsonObject(objectKey), mappingKey, "");
-    }
-
     private static JsonElement member(JsonObject object, String key) {
         if (object == null || !object.has(key) || object.get(key).isJsonNull()) {
             return null;
