@@ -4,6 +4,8 @@ A lightweight NeoForge dialogue API and library mod for Minecraft 1.21.1.
 
 ADM gives modders and modpack creators a reusable foundation for RPG-style dialogue: custom dialogue NPCs, JSON-driven branching conversations, and a small Java API for deeper integration.
 
+Looking for a visual editor? [AME - Aviel Mischievous Editor](https://github.com/AV1el/Aviel-Mischievous-Editor) is available separately and is still under active development.
+
 ## What is it?
 
 ADM is primarily a mod. It does not try to be a full quest/content mod by itself. Instead, it provides the dialogue layer that other mods, and modpacks can build on.
