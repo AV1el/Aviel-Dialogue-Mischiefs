@@ -6,6 +6,7 @@ import net.aviel.dialogue.api.event.DialogueChoiceEvent;
 import net.aviel.dialogue.api.event.DialogueOpenEvent;
 import net.aviel.dialogue.entity.DialogueNpcEntity;
 import net.aviel.dialogue.network.OpenNpcDialoguePacket;
+import net.aviel.dialogue.npc.dialogue.DialogueTranslation;
 import net.aviel.dialogue.npc.dialogue.NpcDialogueDefinition;
 import net.aviel.dialogue.npc.dialogue.NpcDialoguePlayerData;
 import net.aviel.dialogue.npc.storage.ConfigAssetPackBuilder;
@@ -94,8 +95,13 @@ public final class NpcDialogueService {
                 return;
             }
             NpcDialogueDefinition definition = DialogueRepository.loadDialogue(player.server, resolvedFile);
+            DialogueTranslation translation = DialogueRepository.loadDialogueTranslation(
+                    player.server,
+                    resolvedFile,
+                    player.clientInformation().language()
+            );
             String startNode = selectStartNode(definition, player);
-            String json = DialogueClientJson.toClientJson(definition, player, target);
+            String json = DialogueClientJson.toClientJson(definition, translation, player, target);
             DialogueSessionManager.open(player, target.getUUID(), resolvedFile, startNode);
             PacketDistributor.sendToPlayer(player, new OpenNpcDialoguePacket(target.getUUID(), displayNameFor(target), resolvedFile, startNode, json));
         } catch (Exception ex) {
@@ -141,6 +147,18 @@ public final class NpcDialogueService {
         }
         for (String requiredChoice : choice.requiresChoices()) {
             if (!data.hasChoice(player.getUUID(), requiredChoice)) return false;
+        }
+        for (String advancement : choice.requiresAdvancements()) {
+            if (!DialogueConditionEvaluator.hasAdvancement(player, advancement)) return false;
+        }
+        for (String advancement : choice.missingAdvancements()) {
+            if (DialogueConditionEvaluator.hasAdvancement(player, advancement)) return false;
+        }
+        for (NpcDialogueDefinition.KillRule rule : choice.requiresKills()) {
+            if (!DialogueConditionEvaluator.hasKills(player, rule.entity(), rule.count())) return false;
+        }
+        if (!DialogueConditionEvaluator.matches(choice.condition(), player, target)) {
+            return false;
         }
         return DialogueItemHandler.hasItemRules(player, choice.requiresItems())
                 && DialogueItemHandler.hasItemRules(player, choice.takeItems());

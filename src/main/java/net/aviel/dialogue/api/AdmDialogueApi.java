@@ -2,6 +2,7 @@ package net.aviel.dialogue.api;
 
 import net.aviel.dialogue.entity.DialogueNpcEntity;
 import net.aviel.dialogue.npc.NpcDialogueService;
+import net.aviel.dialogue.npc.DialogueConditionEvaluator;
 import net.aviel.dialogue.npc.NpcEmoteService;
 import net.aviel.dialogue.npc.NpcTemplateService;
 import net.aviel.dialogue.npc.NpcTradeService;
@@ -35,6 +36,10 @@ public final class AdmDialogueApi {
         return DialogueStorage.dialogueDirectory();
     }
 
+    public static Path globalDialogueLanguageDirectory() {
+        return DialogueStorage.dialogueLanguageDirectory();
+    }
+
     public static Path globalNpcTemplateDirectory() {
         return DialogueStorage.npcTemplateDirectory();
     }
@@ -62,6 +67,18 @@ public final class AdmDialogueApi {
 
     public static void unregisterDialogue(String id) {
         DialogueRepository.unregisterRuntimeDialogue(id);
+    }
+
+    public static void registerDialogueTranslation(String id, String language, String translationJson) {
+        DialogueRepository.registerRuntimeDialogueTranslation(id, language, translationJson);
+    }
+
+    public static void registerConditionType(String type, DialogueConditionHandler handler) {
+        DialogueConditionEvaluator.register(type, handler);
+    }
+
+    public static void unregisterConditionType(String type) {
+        DialogueConditionEvaluator.unregister(type);
     }
 
     public static void openDialogue(ServerPlayer player, Entity target, String dialogueFile) {

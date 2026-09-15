@@ -22,13 +22,15 @@ public final class NpcDialogueDefinition {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private final String title;
+    private final String speaker;
     private final String startNode;
     private final List<String> startNodes;
     private final DialogueStyle style;
     private final Map<String, Node> nodes;
 
-    private NpcDialogueDefinition(String title, List<String> startNodes, DialogueStyle style, Map<String, Node> nodes) {
+    private NpcDialogueDefinition(String title, String speaker, List<String> startNodes, DialogueStyle style, Map<String, Node> nodes) {
         this.title = clean(title, 80);
+        this.speaker = clean(speaker, 80);
         this.style = style == null ? DialogueStyle.DEFAULT : style;
         this.nodes = Collections.unmodifiableMap(new LinkedHashMap<>(nodes));
         List<String> validStarts = new ArrayList<>();
@@ -69,11 +71,15 @@ public final class NpcDialogueDefinition {
         if (nodes.isEmpty()) {
             throw new JsonSyntaxException("Dialogue must contain at least one node.");
         }
-        return new NpcDialogueDefinition(title, starts, style, nodes);
+        return new NpcDialogueDefinition(title, rootSpeaker, starts, style, nodes);
     }
 
     public String title() {
         return title;
+    }
+
+    public String speaker() {
+        return speaker;
     }
 
     public String startNode() {
@@ -270,6 +276,10 @@ public final class NpcDialogueDefinition {
                     readStringList(object, "missing_tags", "missing_tag", 64),
                     readStringList(object, "requires_missing_tags", "requires_missing_tag", 64),
                     readStringList(object, "requires_choices", "requires_choice", 120),
+                    readStringList(object, "requires_advancements", "requires_advancement", 160),
+                    readStringList(object, "missing_advancements", "missing_advancement", 160),
+                    readKillRules(object.get("requires_kills"), object.get("requires_kill")),
+                    DialogueCondition.read(object),
                     readItemRules(object.get("requires_items")),
                     readItemRules(object.get("take_items")),
                     readItemRules(object.get("give_items"))
@@ -465,6 +475,45 @@ public final class NpcDialogueDefinition {
         return new ItemRule(item, count);
     }
 
+    private static List<KillRule> readKillRules(JsonElement... elements) {
+        List<KillRule> rules = new ArrayList<>();
+        for (JsonElement element : elements) {
+            if (element == null || element.isJsonNull()) {
+                continue;
+            }
+            if (element.isJsonArray()) {
+                for (JsonElement value : element.getAsJsonArray()) {
+                    KillRule rule = readKillRule(value);
+                    if (rule != null) {
+                        rules.add(rule);
+                    }
+                }
+                continue;
+            }
+            KillRule rule = readKillRule(element);
+            if (rule != null) {
+                rules.add(rule);
+            }
+        }
+        return rules;
+    }
+
+    private static KillRule readKillRule(JsonElement element) {
+        if (element == null || element.isJsonNull()) {
+            return null;
+        }
+        if (element.isJsonPrimitive()) {
+            String entity = clean(element.getAsString(), 160);
+            return entity.isBlank() ? null : new KillRule(entity, 1);
+        }
+        if (!element.isJsonObject()) {
+            return null;
+        }
+        JsonObject object = element.getAsJsonObject();
+        String entity = clean(readString(object, "entity", readString(object, "mob", readString(object, "id", ""))), 160);
+        return entity.isBlank() ? null : new KillRule(entity, Math.max(1, readInt(object, "count", 1)));
+    }
+
     private static String clean(String value, int maxLength) {
         if (value == null) return "";
         String clean = value.replace('\r', '\n').trim();
@@ -567,10 +616,72 @@ public final class NpcDialogueDefinition {
             List<String> missingTags,
             List<String> requiresMissingTags,
             List<String> requiresChoices,
+            List<String> requiresAdvancements,
+            List<String> missingAdvancements,
+            List<KillRule> requiresKills,
+            DialogueCondition condition,
             List<ItemRule> requiresItems,
             List<ItemRule> takeItems,
             List<ItemRule> giveItems
     ) {
+        public Choice(
+                int serverIndex,
+                String id,
+                String text,
+                String next,
+                boolean close,
+                String action,
+                String trade,
+                List<String> commands,
+                List<String> addTags,
+                List<String> removeTags,
+                List<String> setFlags,
+                List<String> addFlags,
+                List<String> clearFlags,
+                List<String> removeFlags,
+                List<String> requiresFlags,
+                List<String> missingFlags,
+                List<String> requiresMissingFlags,
+                List<String> requiresTags,
+                List<String> missingTags,
+                List<String> requiresMissingTags,
+                List<String> requiresChoices,
+                List<ItemRule> requiresItems,
+                List<ItemRule> takeItems,
+                List<ItemRule> giveItems
+        ) {
+            this(
+                    serverIndex,
+                    id,
+                    text,
+                    next,
+                    close,
+                    action,
+                    trade,
+                    commands,
+                    addTags,
+                    removeTags,
+                    setFlags,
+                    addFlags,
+                    clearFlags,
+                    removeFlags,
+                    requiresFlags,
+                    missingFlags,
+                    requiresMissingFlags,
+                    requiresTags,
+                    missingTags,
+                    requiresMissingTags,
+                    requiresChoices,
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    new DialogueCondition.All(List.of()),
+                    requiresItems,
+                    takeItems,
+                    giveItems
+            );
+        }
+
         public Choice {
             serverIndex = Math.max(0, serverIndex);
             id = clean(id, 80);
@@ -592,6 +703,10 @@ public final class NpcDialogueDefinition {
             missingTags = List.copyOf(missingTags == null ? List.of() : missingTags);
             requiresMissingTags = List.copyOf(requiresMissingTags == null ? List.of() : requiresMissingTags);
             requiresChoices = List.copyOf(requiresChoices == null ? List.of() : requiresChoices);
+            requiresAdvancements = List.copyOf(requiresAdvancements == null ? List.of() : requiresAdvancements);
+            missingAdvancements = List.copyOf(missingAdvancements == null ? List.of() : missingAdvancements);
+            requiresKills = List.copyOf(requiresKills == null ? List.of() : requiresKills);
+            condition = condition == null ? new DialogueCondition.All(List.of()) : condition;
             requiresItems = List.copyOf(requiresItems == null ? List.of() : requiresItems);
             takeItems = List.copyOf(takeItems == null ? List.of() : takeItems);
             giveItems = List.copyOf(giveItems == null ? List.of() : giveItems);
@@ -601,6 +716,13 @@ public final class NpcDialogueDefinition {
     public record ItemRule(String item, int count) {
         public ItemRule {
             item = clean(item, 160);
+            count = Math.max(1, count);
+        }
+    }
+
+    public record KillRule(String entity, int count) {
+        public KillRule {
+            entity = clean(entity, 160);
             count = Math.max(1, count);
         }
     }

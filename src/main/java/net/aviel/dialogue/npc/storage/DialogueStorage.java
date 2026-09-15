@@ -37,6 +37,10 @@ public final class DialogueStorage {
         return rootDirectory().resolve(DIALOGUE_FOLDER);
     }
 
+    public static Path dialogueLanguageDirectory() {
+        return dialogueDirectory().resolve("langs");
+    }
+
     public static Path npcTemplateDirectory() {
         return rootDirectory().resolve(TEMPLATE_FOLDER);
     }
@@ -67,6 +71,7 @@ public final class DialogueStorage {
 
     public static void ensureDirectories() {
         createDirectory(dialogueDirectory());
+        createDirectory(dialogueLanguageDirectory());
         createDirectory(npcTemplateDirectory());
         createDirectory(tradeDirectory());
         createDirectory(emoteDirectory());

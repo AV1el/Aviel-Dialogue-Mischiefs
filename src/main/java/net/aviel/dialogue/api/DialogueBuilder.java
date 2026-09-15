@@ -164,6 +164,33 @@ public final class DialogueBuilder {
             return this;
         }
 
+        public ChoiceBuilder requiresAdvancement(String advancementId) {
+            appendTo("requires_advancements", advancementId);
+            return this;
+        }
+
+        public ChoiceBuilder missingAdvancement(String advancementId) {
+            appendTo("missing_advancements", advancementId);
+            return this;
+        }
+
+        public ChoiceBuilder requiresKills(String entityId, int count) {
+            JsonArray array = json.has("requires_kills") ? json.getAsJsonArray("requires_kills") : new JsonArray();
+            JsonObject rule = new JsonObject();
+            rule.addProperty("entity", entityId);
+            rule.addProperty("count", count);
+            array.add(rule);
+            json.add("requires_kills", array);
+            return this;
+        }
+
+        public ChoiceBuilder condition(Consumer<JsonObject> condition) {
+            JsonObject conditionObject = new JsonObject();
+            condition.accept(conditionObject);
+            json.add("condition", conditionObject);
+            return this;
+        }
+
         public ChoiceBuilder requiresItem(String itemId, int count) {
             appendItem("requires_items", itemId, count);
             return this;

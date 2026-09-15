@@ -38,6 +38,14 @@ class DialogueRepositoryTest {
     }
 
     @Test
+    void buildsLocalizedDatapackIds() {
+        assertEquals("mymod:langs/ru_ru/npcs/guard",
+                DialogueRepository.localizedDataId("mymod:npcs/guard", "ru-RU"));
+        assertEquals("ru_ru", DialogueRepository.normalizeLanguage(" RU-ru "));
+        assertEquals("", DialogueRepository.normalizeLanguage("../ru_ru"));
+    }
+
+    @Test
     void runtimeDialogueRegistrationValidatesIdAndJson() {
         String json = """
                 { "nodes": { "start": { "text": "Hi" } } }

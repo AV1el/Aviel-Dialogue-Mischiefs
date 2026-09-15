@@ -1,0 +1,66 @@
+{
+  "$schema": "../../schemas/dialogue.schema.json",
+  "title": "Road Warden",
+  "speaker": "Warden",
+  "nodes": {
+    "start": {
+      "text": "Zombies have overrun the east road. Destroy 3 of them and return to me.",
+      "choices": [
+        {
+          "id": "complete_hunt",
+          "text": "I have dealt with them.",
+          "condition": {
+            "all": [
+              {
+                "type": "advancement",
+                "id": "minecraft:adventure/kill_a_mob"
+              },
+              {
+                "any": [
+                  {
+                    "type": "kills",
+                    "entity": "minecraft:zombie",
+                    "count": 3
+                  },
+                  {
+                    "type": "level",
+                    "min": 10
+                  }
+                ]
+              },
+              {
+                "not": {
+                  "type": "dimension",
+                  "id": "minecraft:the_nether"
+                }
+              }
+            ]
+          },
+          "give_items": [
+            {
+              "item": "minecraft:emerald",
+              "count": 2
+            }
+          ],
+          "set_flags": ["east_road_cleared"],
+          "next": "complete"
+        },
+        {
+          "id": "return_later",
+          "text": "I will return later.",
+          "close": true
+        }
+      ]
+    },
+    "complete": {
+      "text": "&aGood work.&r The road is safe again.",
+      "choices": [
+        {
+          "id": "farewell",
+          "text": "Farewell.",
+          "close": true
+        }
+      ]
+    }
+  }
+}

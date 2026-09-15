@@ -33,16 +33,22 @@ public final class ConfigAssetPackBuilder {
     public static Path prepare() {
         Path packRoot = DialogueStorage.resourcePackDirectory();
         try {
-            Files.createDirectories(packRoot);
-            DialogueStorage.ensureDirectories();
-            writePackMetadata(packRoot);
-            syncSkins(packRoot);
-            syncSounds(packRoot);
-            syncLang(packRoot);
+            prepareChecked();
         } catch (IOException ex) {
             // Resource loading will simply ignore the generated pack if something goes wrong here.
             AvielsDialogueMod.LOGGER.warn("Failed to prepare ADM config asset pack", ex);
         }
+        return packRoot;
+    }
+
+    static Path prepareChecked() throws IOException {
+        Path packRoot = DialogueStorage.resourcePackDirectory();
+        Files.createDirectories(packRoot);
+        DialogueStorage.ensureDirectories();
+        writePackMetadata(packRoot);
+        syncSkins(packRoot);
+        syncSounds(packRoot);
+        syncLang(packRoot);
         return packRoot;
     }
 

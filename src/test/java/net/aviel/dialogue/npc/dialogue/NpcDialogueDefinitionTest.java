@@ -112,6 +112,112 @@ class NpcDialogueDefinitionTest {
     }
 
     @Test
+    void advancementAndKillConditionsAreParsed() {
+        String json = """
+                {
+                  "nodes": {
+                    "start": {
+                      "text": "Quest?",
+                      "choices": [
+                        {
+                          "text": "I did it.",
+                          "requires_advancements": ["minecraft:adventure/kill_a_mob"],
+                          "missing_advancement": "example:not_yet",
+                          "requires_kills": [
+                            { "entity": "minecraft:zombie", "count": 4 },
+                            "minecraft:skeleton"
+                          ],
+                          "requires_kill": { "mob": "minecraft:creeper", "count": 2 }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+
+        NpcDialogueDefinition.Choice choice = NpcDialogueDefinition.fromJson(json).node("start").choices().get(0);
+        assertEquals(List.of("minecraft:adventure/kill_a_mob"), choice.requiresAdvancements());
+        assertEquals(List.of("example:not_yet"), choice.missingAdvancements());
+        assertEquals(3, choice.requiresKills().size());
+        assertEquals(new NpcDialogueDefinition.KillRule("minecraft:zombie", 4), choice.requiresKills().get(0));
+        assertEquals(new NpcDialogueDefinition.KillRule("minecraft:skeleton", 1), choice.requiresKills().get(1));
+        assertEquals(new NpcDialogueDefinition.KillRule("minecraft:creeper", 2), choice.requiresKills().get(2));
+    }
+
+    @Test
+    void parsesNestedConditionTree() {
+        String json = """
+                {
+                  "nodes": {
+                    "start": {
+                      "text": "Quest?",
+                      "choices": [
+                        {
+                          "text": "Done",
+                          "condition": {
+                            "all": [
+                              { "type": "advancement", "id": "minecraft:adventure/kill_a_mob" },
+                              {
+                                "any": [
+                                  { "type": "kills", "entity": "minecraft:zombie", "count": 3 },
+                                  { "type": "level", "min": 10 }
+                                ]
+                              },
+                              { "not": { "type": "dimension", "id": "minecraft:the_nether" } }
+                            ]
+                          },
+                          "close": true
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+
+        DialogueCondition condition = NpcDialogueDefinition.fromJson(json).node("start").choices().get(0).condition();
+        DialogueCondition.All all = (DialogueCondition.All) condition;
+        assertEquals(3, all.conditions().size());
+        assertTrue(all.conditions().get(0) instanceof DialogueCondition.Predicate);
+        assertTrue(all.conditions().get(1) instanceof DialogueCondition.Any);
+        assertTrue(all.conditions().get(2) instanceof DialogueCondition.Not);
+        DialogueCondition.Any any = (DialogueCondition.Any) all.conditions().get(1);
+        DialogueCondition.Predicate kills = (DialogueCondition.Predicate) any.conditions().get(0);
+        assertEquals("kills", kills.type());
+        assertEquals("minecraft:zombie", kills.id());
+        assertEquals(3, kills.count());
+    }
+
+    @Test
+    void preservesCustomConditionArguments() {
+        String json = """
+                {
+                  "nodes": {
+                    "start": {
+                      "text": "Quest?",
+                      "choices": [{
+                        "text": "Ask",
+                        "condition": {
+                          "type": "mymod.reputation",
+                          "faction": "mages",
+                          "threshold": 12
+                        }
+                      }]
+                    }
+                  }
+                }
+                """;
+
+        DialogueCondition.Predicate condition = (DialogueCondition.Predicate) NpcDialogueDefinition
+                .fromJson(json)
+                .node("start")
+                .choices()
+                .get(0)
+                .condition();
+        assertEquals("mages", condition.stringArgument("faction", ""));
+        assertEquals(12.0D, condition.numberArgument("threshold", 0.0D));
+    }
+
+    @Test
     void choicesWithoutTextAreDropped() {
         String json = """
                 {

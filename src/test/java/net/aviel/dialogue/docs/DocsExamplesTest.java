@@ -1,5 +1,7 @@
 package net.aviel.dialogue.docs;
 
+import net.aviel.dialogue.npc.dialogue.DialogueCondition;
+import net.aviel.dialogue.npc.dialogue.DialogueTranslation;
 import net.aviel.dialogue.npc.dialogue.NpcDialogueDefinition;
 import net.aviel.dialogue.npc.trade.NpcTradeDefinition;
 import org.junit.jupiter.api.Test;
@@ -47,5 +49,19 @@ class DocsExamplesTest {
         NpcTradeDefinition definition = NpcTradeDefinition.fromJson(read(examples().resolve("trades/guard_armory.json")));
         assertEquals(3, definition.offers().size());
         assertNotNull(definition.offerByIdOrIndex("veteran_blade", -1));
+    }
+
+    @Test
+    void translatedHunterQuestParses() throws IOException {
+        NpcDialogueDefinition definition = NpcDialogueDefinition.fromJson(
+                read(examples().resolve("dialogues/hunter_quest.json"))
+        );
+        DialogueTranslation translation = DialogueTranslation.fromJson(
+                read(examples().resolve("dialogues/langs/ru_ru/hunter_quest.json"))
+        );
+        NpcDialogueDefinition.Choice completion = definition.node("start").choices().get(0);
+        assertEquals("Дорожный смотритель", translation.titleOr(definition.title()));
+        assertEquals("Я с ними разобрался.", translation.choiceTextFor(definition.node("start"), completion));
+        assertTrue(completion.condition() instanceof DialogueCondition.All);
     }
 }

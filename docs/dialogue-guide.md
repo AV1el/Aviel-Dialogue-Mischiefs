@@ -88,6 +88,7 @@ file in place is enough. That is a complete, working dialogue.
 ```text
 config/adm-dialogues/
 ├── dialogues/            conversations
+│   └── langs/<language>/ text-only dialogue overlays
 ├── trades/               shops
 ├── emotes/               keyframe animations
 ├── npc_templates/        reusable NPC presets
@@ -116,6 +117,7 @@ Dialogues, trades and emotes can live in a datapack or a mod jar instead of the 
 
 ```text
 data/<namespace>/adm_dialogues/dialogues/guard.json
+data/<namespace>/adm_dialogues/dialogues/langs/ru_ru/guard.json
 data/<namespace>/adm_dialogues/trades/armory.json
 data/<namespace>/adm_dialogues/emotes/wave.json
 ```
@@ -129,8 +131,8 @@ the id, so `dialogues/npcs/guard.json` is `mymod:npcs/guard`.
 Datapack content reloads with vanilla `/reload`. Plain names and `ns:id` references live in
 separate namespaces, so a config file and a datapack entry sharing a name never collide.
 
-Skins, sounds and lang files cannot ship in a datapack — they are client resources. Put them in
-a mod jar under `assets/<namespace>/`, in a resource pack, or in the config folders.
+Skins, sounds and resource-pack `lang/` files cannot ship in a datapack because they are client
+resources. Dialogue overlays under `dialogues/langs/` are server data and can.
 
 ---
 
@@ -221,6 +223,10 @@ Everything you can add to a choice falls into one of three groups.
 | `requires_tags` · `requires_tag` | the player has these scoreboard tags |
 | `missing_tags` · `missing_tag` | the player does **not** have these tags |
 | `requires_choices` · `requires_choice` | the player picked those choices earlier |
+| `requires_advancements` · `requires_advancement` | the player completed these advancements |
+| `missing_advancements` · `missing_advancement` | the player has not completed these advancements |
+| `requires_kills` · `requires_kill` | the player's vanilla kill statistics meet these counts |
+| `condition` · `conditions` | a recursive condition tree passes |
 | `requires_items` | the player is carrying these items |
 | `take_items` | the player can afford this cost |
 
@@ -339,6 +345,51 @@ Minecraft formatting codes, written with `&`:
 Translation keys work too: `{{my.lang.key}}` is looked up in the player's language and falls
 back to the key itself. Put the translations in `lang/en_us.json`.
 
+## Per-dialogue languages
+
+Keep logic in the base dialogue and translations in separate files:
+
+```text
+dialogues/
+  guard.json
+  langs/
+    en_us/
+      guard.json
+    ru_ru/
+      guard.json
+    de_de/
+      guard.json
+```
+
+The base `guard.json` remains the fallback and contains nodes, conditions, commands, rewards,
+and transitions. A language file is a small text-only overlay:
+
+```json
+{
+  "$schema": "../../../../schemas/dialogue_translation.schema.json",
+  "title": "Дорожный смотритель",
+  "speaker": "Смотритель",
+  "nodes": {
+    "start": {
+      "text": "На дороге опасно.",
+      "choices": {
+        "accept_job": "Я помогу.",
+        "leave": "До встречи."
+      }
+    }
+  }
+}
+```
+
+Give base choices stable `id` values and use those ids as keys under `choices`. Numeric server
+indices (`"0"`, `"1"`) and a matching array are also supported, but ids survive reordering.
+Missing translated fields fall back to the base dialogue. ADM first checks the exact Minecraft
+language such as `ru_ru`, then a generic folder such as `ru`.
+
+For datapacks and mod jars, use the same structure under
+`data/<namespace>/adm_dialogues/dialogues/langs/<language>/`. API-provided dialogues can register
+an overlay with `AdmDialogueApi.registerDialogueTranslation`.
+
 ---
 
 # Quests and state
@@ -370,6 +421,57 @@ it:
 
 Use flags for quest state you set and clear deliberately. Use remembered choices for "has this
 ever come up".
+
+## Recursive conditions
+
+A choice can use a nested `condition` tree. `all` requires every child, `any` requires at least
+one child, and `not` inverts any subtree:
+
+```json
+{
+  "text": "I cleared the road.",
+  "condition": {
+    "all": [
+      { "type": "advancement", "id": "minecraft:adventure/kill_a_mob" },
+      {
+        "any": [
+          { "type": "kills", "entity": "minecraft:zombie", "count": 3 },
+          { "type": "scoreboard", "objective": "hunter_rank", "min": 5 }
+        ]
+      },
+      { "not": { "type": "dimension", "id": "minecraft:the_nether" } }
+    ]
+  },
+  "next": "reward"
+}
+```
+
+`conditions: [...]` is shorthand for `{ "condition": { "all": [...] } }`. Boolean predicates
+can use `"expected": false` as a compact inverse. Numeric predicates accept `min`, `max`, or
+`amount` for an exact value.
+
+| Type | Important fields | Checks |
+| --- | --- | --- |
+| `flag`, `tag`, `choice` | `id` | ADM flag, scoreboard tag, or remembered choice |
+| `item` | `id`, `count` | Inventory item count |
+| `advancement` | `id` | Completed Minecraft advancement |
+| `kills` | `entity`, `count` | Vanilla per-entity kill statistic |
+| `dimension`, `biome` | `id` | Current player location |
+| `game_mode` | `value` | `survival`, `creative`, `adventure`, or `spectator` |
+| `level`, `experience` | `min`, `max`, `amount` | XP level or total XP |
+| `health`, `food` | `min`, `max`, `amount` | Current health or hunger |
+| `scoreboard` | `objective`, `min`, `max`, `amount` | Player score |
+| `permission` | `min` | Command permission level |
+| `time` | `min`, `max` | Day time from 0 to 23999; wrapped ranges are supported |
+| `weather` | `value` | `clear`, `rain`, or `thunder` |
+| `distance` | `min`, `max` | Distance to the dialogue NPC |
+| `sneaking`, `on_ground` | `expected` | Player movement state |
+| `team`, `name` | `value` | Scoreboard team or player name |
+
+Condition trees are limited to 16 nested levels and 64 children per group. They are checked
+when the choice is shown and checked again server-side when clicked. Old `requires_*` fields
+remain supported and are combined with the tree using AND. `/npc validate` reports unknown
+condition types and invalid ids.
 
 ## Items
 
@@ -858,6 +960,24 @@ AdmDialogueApi.registerDialogue("mymod:intro", DialogueBuilder.create()
 so a broken dialogue fails at startup rather than at the player's first click.
 `unregisterDialogue(id)` removes one.
 
+Runtime dialogues can register the same text-only overlays:
+
+```java
+AdmDialogueApi.registerDialogueTranslation("mymod:intro", "ru_ru", russianJson);
+```
+
+Mods can also add new leaf condition types. Custom handlers run server-side and receive all
+generic predicate fields (`id`, `value`, `objective`, `count`, `min`, `max`, `expected`) plus
+the original JSON arguments through `stringArgument` and `numberArgument`:
+
+```java
+AdmDialogueApi.registerConditionType("mymod.reputation", (player, target, condition) ->
+        reputation(player, condition.stringArgument("faction", "neutral")) >= condition.count());
+```
+
+Use the registered name in JSON as `"type": "mymod.reputation"`. Built-in names cannot be
+replaced. Throwing handlers fail closed and are logged.
+
 ## Events
 
 Two cancellable events fire on `NeoForge.EVENT_BUS`, both server-side:
@@ -999,9 +1119,10 @@ the NPC, and `/npc reload` after saving the file? Is the JSON valid — `/npc va
 Are you clicking with the main hand?
 
 **A choice is missing.** Some condition failed: `requires_flags`, `missing_flags`,
-`requires_tags`, `missing_tags`, `requires_choices`, `requires_items`, or an unaffordable
-`take_items`. Failing choices are hidden rather than greyed out. `/npc info` shows the NPC's
-state.
+`requires_tags`, `missing_tags`, `requires_choices`, `requires_advancements`,
+`missing_advancements`, `requires_kills`, the recursive `condition`, `requires_items`, or an
+unaffordable `take_items`. Failing choices are hidden rather than greyed out. `/npc info` shows
+the NPC's state.
 
 **Items are not detected.** Use the full id, namespace included: `minecraft:raw_iron`, never
 `raw_iron`. `/npc validate` flags missing namespaces.

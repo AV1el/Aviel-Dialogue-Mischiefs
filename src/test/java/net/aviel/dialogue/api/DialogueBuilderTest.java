@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DialogueBuilderTest {
@@ -26,6 +27,12 @@ class DialogueBuilderTest {
                                 .id("finish")
                                 .text("Done")
                                 .setFlag("intro_done")
+                                .requiresAdvancement("minecraft:story/root")
+                                .requiresKills("minecraft:zombie", 2)
+                                .condition(condition -> {
+                                    condition.addProperty("type", "level");
+                                    condition.addProperty("min", 5);
+                                })
                                 .giveItem("minecraft:bread", 2)
                                 .close()))
                 .build();
@@ -40,7 +47,19 @@ class DialogueBuilderTest {
         assertEquals("finish", finish.id());
         assertTrue(finish.close());
         assertEquals(List.of("intro_done"), finish.setFlags());
+        assertEquals(List.of("minecraft:story/root"), finish.requiresAdvancements());
+        assertEquals(new NpcDialogueDefinition.KillRule("minecraft:zombie", 2), finish.requiresKills().get(0));
+        assertTrue(finish.condition() instanceof net.aviel.dialogue.npc.dialogue.DialogueCondition.Predicate);
         assertEquals("minecraft:bread", finish.giveItems().get(0).item());
         assertEquals(2, finish.giveItems().get(0).count());
+    }
+
+    @Test
+    void customConditionTypesCannotReplaceBuiltIns() {
+        assertThrows(IllegalArgumentException.class,
+                () -> AdmDialogueApi.registerConditionType("flag", (player, target, condition) -> true));
+
+        AdmDialogueApi.registerConditionType("mymod.reputation", (player, target, condition) -> true);
+        AdmDialogueApi.unregisterConditionType("mymod.reputation");
     }
 }

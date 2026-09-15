@@ -1,0 +1,20 @@
+{
+  "$schema": "../../../../schemas/dialogue_translation.schema.json",
+  "title": "Дорожный смотритель",
+  "speaker": "Смотритель",
+  "nodes": {
+    "start": {
+      "text": "Зомби заполонили восточную дорогу. Уничтожь троих и возвращайся ко мне.",
+      "choices": {
+        "complete_hunt": "Я с ними разобрался.",
+        "return_later": "Я вернусь позже."
+      }
+    },
+    "complete": {
+      "text": "&aОтличная работа.&r Дорога снова безопасна.",
+      "choices": {
+        "farewell": "До встречи."
+      }
+    }
+  }
+}

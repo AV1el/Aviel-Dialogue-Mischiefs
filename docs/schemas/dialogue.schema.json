@@ -103,13 +103,121 @@
         "missing_tags": { "$ref": "#/definitions/stringList" },
         "requires_missing_tags": { "$ref": "#/definitions/stringList" },
         "requires_choices": { "$ref": "#/definitions/stringList" },
+        "requires_advancements": { "$ref": "#/definitions/stringList" },
+        "requires_advancement": { "type": "string" },
+        "missing_advancements": { "$ref": "#/definitions/stringList" },
+        "missing_advancement": { "type": "string" },
+        "requires_kills": { "$ref": "#/definitions/killRules" },
+        "requires_kill": { "$ref": "#/definitions/killRule" },
+        "condition": { "$ref": "#/definitions/condition" },
+        "conditions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/condition" },
+          "description": "Shorthand for an all-condition group."
+        },
         "requires_items": { "$ref": "#/definitions/itemRules" },
         "take_items": { "$ref": "#/definitions/itemRules" },
         "give_items": { "$ref": "#/definitions/itemRules" }
       },
       "anyOf": [ { "required": ["text"] }, { "required": ["label"] } ]
     },
+    "condition": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": { "$ref": "#/definitions/condition" },
+          "maxItems": 64
+        },
+        {
+          "type": "object",
+          "properties": {
+            "all": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/condition" },
+              "maxItems": 64
+            }
+          },
+          "required": ["all"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "any": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/condition" },
+              "maxItems": 64
+            }
+          },
+          "required": ["any"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "not": { "$ref": "#/definitions/condition" }
+          },
+          "required": ["not"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_.-]{0,63}$",
+              "description": "Built-in type or a custom type registered through the Java API."
+            },
+            "id": { "type": "string" },
+            "item": { "type": "string" },
+            "entity": { "type": "string" },
+            "advancement": { "type": "string" },
+            "flag": { "type": "string" },
+            "tag": { "type": "string" },
+            "dimension": { "type": "string" },
+            "biome": { "type": "string" },
+            "value": { "type": "string" },
+            "mode": { "type": "string" },
+            "weather": { "type": "string" },
+            "team": { "type": "string" },
+            "objective": { "type": "string" },
+            "count": { "type": "integer", "minimum": 1 },
+            "amount": { "type": "number" },
+            "min": { "type": "number" },
+            "max": { "type": "number" },
+            "expected": { "type": "boolean" },
+            "done": { "type": "boolean" }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
     "stringList": { "type": "array", "items": { "type": "string" } },
+    "killRules": {
+      "oneOf": [
+        { "$ref": "#/definitions/killRule" },
+        { "type": "array", "items": { "$ref": "#/definitions/killRule" } }
+      ]
+    },
+    "killRule": {
+      "oneOf": [
+        { "type": "string", "description": "Entity id, count 1." },
+        {
+          "type": "object",
+          "properties": {
+            "entity": { "type": "string", "description": "Entity id like minecraft:zombie." },
+            "mob": { "type": "string" },
+            "id": { "type": "string" },
+            "count": { "type": "integer", "minimum": 1 }
+          },
+          "anyOf": [
+            { "required": ["entity"] },
+            { "required": ["mob"] },
+            { "required": ["id"] }
+          ]
+        }
+      ]
+    },
     "itemRules": {
       "oneOf": [
         { "$ref": "#/definitions/itemRule" },

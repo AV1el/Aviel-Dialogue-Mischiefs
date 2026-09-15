@@ -89,6 +89,9 @@ public class AvielsDialogueMod {
         NeoForge.EVENT_BUS.addListener(this::registerCommands);
         NeoForge.EVENT_BUS.addListener(this::addReloadListeners);
         NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedOut);
+        NeoForge.EVENT_BUS.addListener(net.aviel.dialogue.npc.storage.ServerAssetPack::onServerStarting);
+        NeoForge.EVENT_BUS.addListener(net.aviel.dialogue.npc.storage.ServerAssetPack::onServerStopped);
+        NeoForge.EVENT_BUS.addListener(net.aviel.dialogue.npc.storage.ServerAssetPack::onPlayerLoggedIn);
         AdmDataPackManager.DIALOGUES.addInvalidationListener(DialogueRepository::invalidateCaches);
         AdmDataPackManager.TRADES.addInvalidationListener(NpcTradeService::invalidateCaches);
     }

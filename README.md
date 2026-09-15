@@ -8,6 +8,8 @@ Looking for a visual editor? [AME - Aviel Mischievous Editor](https://github.com
 
 ## What is it?
 
+Server owners: see [server resource-pack delivery](docs/server-resource-pack.md) for automatic NPC asset hosting and `/npc assets reload`.
+
 ADM is primarily a mod. It does not try to be a full quest/content mod by itself. Instead, it provides the dialogue layer that other mods, and modpacks can build on.
 
 Use it when you want:
@@ -16,7 +18,9 @@ Use it when you want:
 - Branching JSON conversations
 - Typewriter text with pauses, speed changes, formatting, and sounds
 - Player flags and persistent choice tracking
+- Recursive quest conditions with `all`, `any`, and `not`
 - Item requirements, item taking, and item rewards
+- Per-language dialogue overlay files
 - Trade shops opened from dialogue choices
 - NPC emotes (keyframe JSON animations) triggered from dialogue text
 
@@ -33,6 +37,9 @@ ADM reads its content from the global Minecraft config folder:
 ```text
 config/adm-dialogues/
   dialogues/
+    langs/
+      en_us/
+      ru_ru/
   npc_templates/
   trades/
   emotes/
@@ -47,6 +54,7 @@ Besides the config folder, dialogues, trades and emotes can ship inside datapack
 
 ```text
 data/<namespace>/adm_dialogues/dialogues/guard.json
+data/<namespace>/adm_dialogues/dialogues/langs/ru_ru/guard.json
 data/<namespace>/adm_dialogues/trades/blacksmith_shop.json
 data/<namespace>/adm_dialogues/emotes/wave.json
 ```

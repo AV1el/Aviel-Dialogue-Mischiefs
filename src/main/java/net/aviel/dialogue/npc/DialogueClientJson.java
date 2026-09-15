@@ -3,6 +3,7 @@ package net.aviel.dialogue.npc;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import net.aviel.dialogue.npc.dialogue.DialogueTranslation;
 import net.aviel.dialogue.npc.dialogue.NpcDialogueDefinition;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -15,28 +16,43 @@ public final class DialogueClientJson {
     }
 
     public static String toClientJson(NpcDialogueDefinition definition, ServerPlayer player, Entity target) {
+        return toClientJson(definition, DialogueTranslation.EMPTY, player, target);
+    }
+
+    public static String toClientJson(
+            NpcDialogueDefinition definition,
+            DialogueTranslation translation,
+            ServerPlayer player,
+            Entity target
+    ) {
         JsonObject root = new JsonObject();
-        root.addProperty("title", definition.title());
+        root.addProperty("title", translation.titleOr(definition.title()));
         root.addProperty("start", definition.startNode());
         addStyle(root, definition.style());
 
         JsonObject nodes = new JsonObject();
         for (NpcDialogueDefinition.Node node : definition.nodes().values()) {
-            nodes.add(node.id(), nodeJson(node, player, target));
+            nodes.add(node.id(), nodeJson(definition, node, translation, player, target));
         }
         root.add("nodes", nodes);
         return GSON.toJson(root);
     }
 
-    private static JsonObject nodeJson(NpcDialogueDefinition.Node node, ServerPlayer player, Entity target) {
+    private static JsonObject nodeJson(
+            NpcDialogueDefinition definition,
+            NpcDialogueDefinition.Node node,
+            DialogueTranslation translation,
+            ServerPlayer player,
+            Entity target
+    ) {
         JsonObject nodeObject = new JsonObject();
-        nodeObject.addProperty("speaker", node.speaker());
+        nodeObject.addProperty("speaker", translation.speakerFor(definition, node));
         nodeObject.addProperty("text_speed", node.textSpeed());
         nodeObject.addProperty("text_color", node.textColor());
         nodeObject.addProperty("speaker_color", node.speakerColor());
         addSound(nodeObject, node.sound());
         JsonArray text = new JsonArray();
-        for (String line : node.text()) {
+        for (String line : translation.textFor(node)) {
             text.add(line);
         }
         nodeObject.add("text", text);
@@ -49,7 +65,7 @@ public final class DialogueClientJson {
             JsonObject choiceObject = new JsonObject();
             choiceObject.addProperty("server_index", choice.serverIndex());
             choiceObject.addProperty("id", choice.id());
-            choiceObject.addProperty("text", choice.text());
+            choiceObject.addProperty("text", translation.choiceTextFor(node, choice));
             choiceObject.addProperty("next", choice.next());
             choiceObject.addProperty("close", choice.close());
             choiceObject.addProperty("action", choice.action());
