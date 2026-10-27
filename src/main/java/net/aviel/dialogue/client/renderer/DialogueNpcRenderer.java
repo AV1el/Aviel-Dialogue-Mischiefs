@@ -59,6 +59,11 @@ public class DialogueNpcRenderer extends MobRenderer<DialogueNpcEntity, Dialogue
         return "slim".equals(entity.getPlayerModel()) ? SLIM_TEXTURE : DEFAULT_TEXTURE;
     }
 
+    @Override
+    protected boolean shouldShowName(DialogueNpcEntity entity) {
+        return !net.aviel.dialogue.client.NpcEditorPreview.rendering() && super.shouldShowName(entity);
+    }
+
     // Vanilla players render at 15/16 model scale; without it the NPC looks noticeably bigger than a player.
     private static final float PLAYER_VISUAL_SCALE = 0.9375F;
 
@@ -76,6 +81,7 @@ public class DialogueNpcRenderer extends MobRenderer<DialogueNpcEntity, Dialogue
 
     private void applyNpcBodyTransform(DialogueNpcEntity entity, PoseStack poseStack, float partialTicks) {
         if (entity == null || poseStack == null) return;
+        if (entity.hasCombatAnimation()) return;
         if (!entity.isNpcEmotePlaying()) return;
         if (entity.level() == null) return;
 

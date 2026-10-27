@@ -10,7 +10,10 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.UUID;
 
-public record OpenNpcDialoguePacket(UUID npcUuid, String npcName, String dialogueFile, String startNode, String rawJson) implements CustomPacketPayload {
+public record OpenNpcDialoguePacket(UUID npcUuid, String npcName, String dialogueFile, String startNode, String rawJson, boolean refresh) implements CustomPacketPayload {
+    public OpenNpcDialoguePacket(UUID npcUuid, String npcName, String dialogueFile, String startNode, String rawJson) {
+        this(npcUuid, npcName, dialogueFile, startNode, rawJson, false);
+    }
     public static final Type<OpenNpcDialoguePacket> TYPE = new Type<>(AvielsDialogueMod.id("open_npc_dialogue"));
     public static final StreamCodec<FriendlyByteBuf, OpenNpcDialoguePacket> STREAM_CODEC = StreamCodec.ofMember(OpenNpcDialoguePacket::write, OpenNpcDialoguePacket::read);
 
@@ -20,7 +23,8 @@ public record OpenNpcDialoguePacket(UUID npcUuid, String npcName, String dialogu
                 buf.readUtf(128),
                 buf.readUtf(260),
                 buf.readUtf(80),
-                buf.readUtf(30000)
+                buf.readUtf(30000),
+                buf.readBoolean()
         );
     }
 
@@ -30,6 +34,7 @@ public record OpenNpcDialoguePacket(UUID npcUuid, String npcName, String dialogu
         buf.writeUtf(this.dialogueFile, 260);
         buf.writeUtf(this.startNode, 80);
         buf.writeUtf(this.rawJson, 30000);
+        buf.writeBoolean(refresh);
     }
 
     @Override
@@ -38,6 +43,9 @@ public record OpenNpcDialoguePacket(UUID npcUuid, String npcName, String dialogu
     }
 
     public static void handle(OpenNpcDialoguePacket packet, IPayloadContext context) {
-        context.enqueueWork(() -> ClientPacketHandler.openDialogue(packet.npcUuid, packet.npcName, packet.dialogueFile, packet.startNode, packet.rawJson));
+        context.enqueueWork(() -> {
+            if (packet.refresh) ClientPacketHandler.refreshDialogue(packet.npcUuid, packet.dialogueFile, packet.rawJson);
+            else ClientPacketHandler.openDialogue(packet.npcUuid, packet.npcName, packet.dialogueFile, packet.startNode, packet.rawJson);
+        });
     }
 }

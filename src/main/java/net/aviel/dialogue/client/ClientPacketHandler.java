@@ -14,6 +14,10 @@ public final class ClientPacketHandler {
         minecraft.setScreen(new NpcDialogueScreen(npcUuid, npcName, dialogueFile, startNode, rawJson));
     }
 
+    public static void refreshDialogue(UUID npcUuid, String dialogueFile, String rawJson) {
+        if (Minecraft.getInstance().screen instanceof NpcDialogueScreen screen) screen.refresh(npcUuid, dialogueFile, rawJson);
+    }
+
     public static void openTrade(UUID npcUuid, String npcName, String tradeFile, String rawJson) {
         Minecraft minecraft = Minecraft.getInstance();
         minecraft.setScreen(new NpcTradeScreen(npcUuid, npcName, tradeFile, rawJson));
@@ -26,5 +30,10 @@ public final class ClientPacketHandler {
     public static void openNpcEditor(OpenNpcEditorPacket packet) {
         Minecraft minecraft = Minecraft.getInstance();
         minecraft.setScreen(new NpcEditorScreen(packet));
+    }
+
+    public static void openNpcCombatEditor(net.aviel.dialogue.network.OpenNpcCombatEditorPacket packet) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.screen instanceof NpcEditorScreen screen) screen.acceptTemplate(packet);
     }
 }

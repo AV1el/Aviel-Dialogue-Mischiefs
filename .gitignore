@@ -41,3 +41,7 @@ repo/
 
 ### aislop ###
 .aislop/
+
+### Local release bundles and experiments ###
+/release/
+/hybrid/

@@ -31,6 +31,38 @@ class DocsExamplesTest {
     }
 
     @Test
+    void factionOpinionExamplesParseTogether() throws IOException {
+        var factions = net.aviel.dialogue.npc.social.FactionRelations.parse(com.google.gson.JsonParser.parseString(
+                read(examples().resolve("factions.json"))).getAsJsonObject());
+        assertEquals(net.aviel.dialogue.npc.social.FactionRelations.Relation.HOSTILE, factions.relation("wardens", "bandits"));
+        var social = net.aviel.dialogue.npc.social.NpcSocialProfile.read(com.google.gson.JsonParser.parseString(
+                read(examples().resolve("npc_templates/opinion_warden.json"))).getAsJsonObject().getAsJsonObject("social"));
+        assertEquals(20, social.opinion().discount(80));
+        var dialogue = NpcDialogueDefinition.fromJson(read(examples().resolve("dialogues/opinion_warden.json")));
+        assertEquals(2, dialogue.node("start").choices().get(1).opinionChanges().size());
+        assertEquals(1, NpcTradeDefinition.fromJson(read(examples().resolve("trades/opinion_shop.json"))).offers().size());
+    }
+
+    @Test
+    void companionTemplateContainsValidCombatProfile() throws IOException {
+        var json = com.google.gson.JsonParser.parseString(read(examples().resolve("npc_templates/companion_guard.json"))).getAsJsonObject();
+        var profile = net.aviel.dialogue.entity.ai.NpcCombatProfile.fromJson(json.getAsJsonObject("combat"));
+        assertEquals(40, profile.health());
+        assertEquals(net.aviel.dialogue.entity.ai.NpcCombatProfile.Policy.HOSTILE, profile.policy());
+        assertTrue(Files.isRegularFile(examples().resolve("dialogues").resolve(json.get("dialogue").getAsString())));
+    }
+
+    @Test
+    void companionCommandsUseExplicitDialogueTarget() throws IOException {
+        NpcDialogueDefinition definition = NpcDialogueDefinition.fromJson(read(examples().resolve("dialogues/companion.json")));
+        assertEquals(6, definition.node("start").choices().size());
+        for (var choice : definition.node("start").choices()) {
+            assertTrue(choice.commands().getFirst().startsWith("npc companion {npc_uuid} "));
+            assertNotNull(definition.node(choice.next()));
+        }
+    }
+
+    @Test
     void guardDialogueParsesAndLinksResolve() throws IOException {
         NpcDialogueDefinition definition = NpcDialogueDefinition.fromJson(read(examples().resolve("dialogues/guard.json")));
         assertEquals("start", definition.startNode());

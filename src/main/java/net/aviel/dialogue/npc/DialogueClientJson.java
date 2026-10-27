@@ -35,6 +35,9 @@ public final class DialogueClientJson {
             nodes.add(node.id(), nodeJson(definition, node, translation, player, target));
         }
         root.add("nodes", nodes);
+        if (target instanceof net.aviel.dialogue.entity.DialogueNpcEntity npc) {
+            net.aviel.dialogue.npc.dialogue.DialoguePalette.apply(root, npc.getDialoguePalette());
+        }
         return GSON.toJson(root);
     }
 
@@ -104,6 +107,7 @@ public final class DialogueClientJson {
         styleObject.addProperty("button_disabled_color", style.buttonDisabledColor());
         styleObject.addProperty("button_text_color", style.buttonTextColor());
         styleObject.addProperty("button_disabled_text_color", style.buttonDisabledTextColor());
+        style.colors().forEach(styleObject::addProperty);
         object.add("style", styleObject);
     }
 }

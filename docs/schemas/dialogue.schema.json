@@ -56,7 +56,18 @@
         "button_hover_color": { "$ref": "#/definitions/color" },
         "button_disabled_color": { "$ref": "#/definitions/color" },
         "button_text_color": { "$ref": "#/definitions/color" },
-        "button_disabled_text_color": { "$ref": "#/definitions/color" }
+        "button_disabled_text_color": { "$ref": "#/definitions/color" },
+        "border_color": { "$ref": "#/definitions/color" },
+        "header_background": { "$ref": "#/definitions/color" },
+        "npc_name_color": { "$ref": "#/definitions/color" },
+        "button_border_color": { "$ref": "#/definitions/color" },
+        "button_hover_border_color": { "$ref": "#/definitions/color" },
+        "button_hover_text_color": { "$ref": "#/definitions/color" },
+        "inactive_color": { "$ref": "#/definitions/color" },
+        "error_color": { "$ref": "#/definitions/color" },
+        "scroll_track_color": { "$ref": "#/definitions/color" },
+        "scroll_thumb_color": { "$ref": "#/definitions/color" },
+        "typing_indicator_color": { "$ref": "#/definitions/color" }
       }
     },
     "node": {
@@ -117,7 +128,22 @@
         },
         "requires_items": { "$ref": "#/definitions/itemRules" },
         "take_items": { "$ref": "#/definitions/itemRules" },
-        "give_items": { "$ref": "#/definitions/itemRules" }
+        "give_items": { "$ref": "#/definitions/itemRules" },
+        "opinion_changes": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "properties": {
+              "scope": { "enum": ["npc", "faction"] },
+              "faction": { "type": "string", "pattern": "^[a-z0-9_.:-]{1,80}$" },
+              "key": { "type": "string", "pattern": "^[a-z0-9_.:-]{1,80}$" },
+              "amount": { "type": "integer", "minimum": -100000, "maximum": 100000 },
+              "set": { "type": "integer", "minimum": -100, "maximum": 100 }
+            },
+            "oneOf": [{ "required": ["amount"] }, { "required": ["set"] }]
+          }
+        }
       },
       "anyOf": [ { "required": ["text"] }, { "required": ["label"] } ]
     },
@@ -181,6 +207,9 @@
             "weather": { "type": "string" },
             "team": { "type": "string" },
             "objective": { "type": "string" },
+            "scope": { "enum": ["npc", "faction"] },
+            "faction": { "type": "string", "pattern": "^[a-z0-9_.:-]{1,80}$" },
+            "key": { "type": "string", "pattern": "^[a-z0-9_.:-]{1,80}$" },
             "count": { "type": "integer", "minimum": 1 },
             "amount": { "type": "number" },
             "min": { "type": "number" },

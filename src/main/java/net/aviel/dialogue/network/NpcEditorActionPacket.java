@@ -16,13 +16,13 @@ public record NpcEditorActionPacket(UUID npcUuid, String action, String stringVa
     public static final StreamCodec<FriendlyByteBuf, NpcEditorActionPacket> STREAM_CODEC = StreamCodec.ofMember(NpcEditorActionPacket::write, NpcEditorActionPacket::read);
 
     private static NpcEditorActionPacket read(FriendlyByteBuf buf) {
-        return new NpcEditorActionPacket(buf.readUUID(), buf.readUtf(32), buf.readUtf(260), buf.readFloat());
+        return new NpcEditorActionPacket(buf.readUUID(), buf.readUtf(32), buf.readUtf(16384), buf.readFloat());
     }
 
     private void write(FriendlyByteBuf buf) {
         buf.writeUUID(this.npcUuid);
         buf.writeUtf(this.action, 32);
-        buf.writeUtf(this.stringValue, 260);
+        buf.writeUtf(this.stringValue, 16384);
         buf.writeFloat(this.floatValue);
     }
 

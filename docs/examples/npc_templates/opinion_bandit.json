@@ -1,0 +1,7 @@
+{
+  "name": "Faction Bandit",
+  "invulnerable": false,
+  "combat": { "health": 30, "damage": 2, "speed": 0.35, "policy": "hostile" },
+  "social": { "faction": "bandits", "combat": true },
+  "equipment": { "mainhand": "minecraft:stone_sword" }
+}

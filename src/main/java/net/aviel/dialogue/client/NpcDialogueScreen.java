@@ -38,14 +38,12 @@ public class NpcDialogueScreen extends Screen {
     private static final int HEADER_HEIGHT = 24;
     private static final int ANIMATION_MS = 180;
     private static final int INDICATOR_COLUMN = 14;
-    private static final int COLOR_MUTED = 0xFF9B8BA8;
-    private static final int COLOR_INACTIVE = 0x553A2A4E;
-    private static final int COLOR_ERROR = 0xFFFF9D8F;
     private static final char FORMAT_PREFIX = '\u00A7';
 
     private final UUID npcUuid;
     private final String npcName;
-    private final NpcDialogueDefinition definition;
+    private NpcDialogueDefinition definition;
+    private final String dialogueFile;
     private final String parseError;
     private final NpcDialogueDefinition.DialogueStyle style;
     private final Deque<String> history = new ArrayDeque<>();
@@ -71,6 +69,7 @@ public class NpcDialogueScreen extends Screen {
     public NpcDialogueScreen(UUID npcUuid, String npcName, String dialogueFile, String startNode, String rawJson) {
         super(Component.translatable("message.adm.npc.dialogue.gui.title"));
         this.npcUuid = npcUuid;
+        this.dialogueFile = dialogueFile;
         this.npcName = npcName == null || npcName.isBlank() ? "NPC" : npcName;
 
         NpcDialogueDefinition parsed = null;
@@ -89,6 +88,15 @@ public class NpcDialogueScreen extends Screen {
 
     @Override
     protected void init() {
+        updateLayout();
+        rebuildChoices();
+    }
+
+    public void refresh(UUID target, String file, String json) {
+        if (!npcUuid.equals(target) || !dialogueFile.equals(file)) return;
+        this.definition = NpcDialogueDefinition.fromJson(json);
+        choiceOffset = 0;
+        highlightedChoice = 0;
         updateLayout();
         rebuildChoices();
     }
@@ -274,9 +282,10 @@ public class NpcDialogueScreen extends Screen {
 
     private void renderDialoguePanel(GuiGraphics graphics) {
         int accent = parseColor(this.style.dividerColor(), 0xFFA986EC);
+        int error = parseColor(this.style.color("error_color", ""), 0xFFFF9D8F);
         AdmGuiKit.fillRounded(graphics, this.panelX - 3, this.panelY - 3, this.panelW + 6, this.panelH + 6, parseColor(this.style.outerColor(), 0x66000000));
         AdmGuiKit.fillRounded(graphics, this.panelX, this.panelY, this.panelW, this.panelH, parseColor(this.style.textBackground(), 0xF60F0817));
-        AdmGuiKit.outlineRounded(graphics, this.panelX, this.panelY, this.panelW, this.panelH, 0xFF574A75);
+        AdmGuiKit.outlineRounded(graphics, this.panelX, this.panelY, this.panelW, this.panelH, parseColor(this.style.color("border_color", ""), 0xFF574A75));
 
         int choiceX = choicePanelX();
         int cardW = this.panelX + this.panelW - choiceX - 6;
@@ -286,15 +295,15 @@ public class NpcDialogueScreen extends Screen {
         renderChoiceScrollIndicators(graphics, choiceX, cardY, cardW, cardH, accent);
 
         if (this.definition == null) {
-            renderHeader(graphics, Component.translatable("message.adm.npc.dialogue.gui.invalid").getString(), COLOR_ERROR, accent);
-            graphics.drawString(this.font, Component.literal(clip(this.font, this.parseError, textWidth())), this.panelX + 12, this.panelY + HEADER_HEIGHT + 8, COLOR_ERROR, false);
+            renderHeader(graphics, Component.translatable("message.adm.npc.dialogue.gui.invalid").getString(), error, accent);
+            graphics.drawString(this.font, Component.literal(clip(this.font, this.parseError, textWidth())), this.panelX + 12, this.panelY + HEADER_HEIGHT + 8, error, false);
             return;
         }
 
         NpcDialogueDefinition.Node node = currentNode();
         if (node == null) {
-            renderHeader(graphics, this.npcName, COLOR_ERROR, accent);
-            graphics.drawString(this.font, Component.translatable("message.adm.npc.dialogue.gui.missing_node", this.currentNodeId), this.panelX + 12, this.panelY + HEADER_HEIGHT + 8, COLOR_ERROR, false);
+            renderHeader(graphics, this.npcName, error, accent);
+            graphics.drawString(this.font, Component.translatable("message.adm.npc.dialogue.gui.missing_node", this.currentNodeId), this.panelX + 12, this.panelY + HEADER_HEIGHT + 8, error, false);
             return;
         }
 
@@ -307,12 +316,13 @@ public class NpcDialogueScreen extends Screen {
 
     /** Title strip: speaker on the left, NPC name on the right, accent rule underneath. */
     private void renderHeader(GuiGraphics graphics, String speaker, int speakerColor, int accent) {
-        graphics.fill(this.panelX + 1, this.panelY + 2, this.panelX + this.panelW - 1, this.panelY + HEADER_HEIGHT, parseColor(this.style.choicesBackground(), 0xFF1A0F28));
+        graphics.fill(this.panelX + 1, this.panelY + 2, this.panelX + this.panelW - 1, this.panelY + HEADER_HEIGHT,
+                parseColor(this.style.color("header_background", this.style.choicesBackground()), 0xFF1A0F28));
         graphics.fill(this.panelX + 1, this.panelY + HEADER_HEIGHT, this.panelX + this.panelW - 1, this.panelY + HEADER_HEIGHT + 1, accent);
         graphics.drawString(this.font, formattedComponent(speaker).withStyle(ChatFormatting.BOLD), this.panelX + 12, this.panelY + 8, speakerColor, false);
         String npc = AdmGuiKit.amp(DialogueTextLocalizer.localize(this.npcName));
         int npcWidth = this.font.width(npc);
-        graphics.drawString(this.font, npc, this.panelX + this.panelW - 12 - npcWidth, this.panelY + 8, COLOR_MUTED, false);
+        graphics.drawString(this.font, npc, this.panelX + this.panelW - 12 - npcWidth, this.panelY + 8, parseColor(this.style.color("npc_name_color", ""), 0xFF9B8BA8), false);
     }
 
     private void renderNodeText(GuiGraphics graphics, NpcDialogueDefinition.Node node) {
@@ -339,7 +349,7 @@ public class NpcDialogueScreen extends Screen {
     /** Blinking caret while the typewriter is still running. */
     private void renderTypingIndicator(GuiGraphics graphics, int accent) {
         if (this.visibleChars < this.fullTextLength && (System.currentTimeMillis() / 400L) % 2L == 0L) {
-            AdmGuiKit.fillRounded(graphics, this.panelX + 12, this.panelY + this.panelH - 12, 4, 4, accent);
+            AdmGuiKit.fillRounded(graphics, this.panelX + 12, this.panelY + this.panelH - 12, 4, 4, parseColor(this.style.color("typing_indicator_color", ""), accent));
         }
     }
 
@@ -352,16 +362,17 @@ public class NpcDialogueScreen extends Screen {
         int x = cardX + cardW - 11;
         boolean canScrollUp = this.choiceOffset > 0;
         boolean canScrollDown = this.choiceOffset + MAX_VISIBLE_CHOICES < total;
-        drawChevron(graphics, x, cardY + 5, true, canScrollUp ? accent : COLOR_INACTIVE);
-        drawChevron(graphics, x, cardY + cardH - 8, false, canScrollDown ? accent : COLOR_INACTIVE);
+        int inactive = parseColor(this.style.color("inactive_color", ""), 0x553A2A4E);
+        drawChevron(graphics, x, cardY + 5, true, canScrollUp ? accent : inactive);
+        drawChevron(graphics, x, cardY + cardH - 8, false, canScrollDown ? accent : inactive);
 
         int trackY = cardY + 14;
         int trackH = cardH - 26;
-        graphics.fill(x + 2, trackY, x + 3, trackY + trackH, 0x40000000);
+        graphics.fill(x + 2, trackY, x + 3, trackY + trackH, parseColor(this.style.color("scroll_track_color", ""), 0x40000000));
         int thumbH = Math.max(8, trackH * MAX_VISIBLE_CHOICES / total);
         int travel = Math.max(1, total - MAX_VISIBLE_CHOICES);
         int thumbY = trackY + Math.round((float) this.choiceOffset / travel * (trackH - thumbH));
-        graphics.fill(x + 2, thumbY, x + 3, thumbY + thumbH, accent);
+        graphics.fill(x + 2, thumbY, x + 3, thumbY + thumbH, parseColor(this.style.color("scroll_thumb_color", ""), accent));
     }
 
     private static void drawChevron(GuiGraphics graphics, int x, int y, boolean pointingUp, int color) {
@@ -1018,9 +1029,12 @@ public class NpcDialogueScreen extends Screen {
                     ? parseColor(this.style.buttonTextColor(), 0xFFF2E7FF)
                     : parseColor(this.style.buttonDisabledTextColor(), 0xFF6A5F78);
             int accent = parseColor(this.style.dividerColor(), 0xFFA986EC);
+            if (hovered) text = parseColor(this.style.color("button_hover_text_color", ""), text);
 
             AdmGuiKit.fillRounded(graphics, this.getX(), this.getY(), this.width, this.height, fill);
-            AdmGuiKit.outlineRounded(graphics, this.getX(), this.getY(), this.width, this.height, hovered ? accent : 0xFF3A2A4E);
+            int border = hovered ? parseColor(this.style.color("button_hover_border_color", ""), accent)
+                    : parseColor(this.style.color("button_border_color", ""), 0xFF3A2A4E);
+            AdmGuiKit.outlineRounded(graphics, this.getX(), this.getY(), this.width, this.height, border);
             if (hovered) {
                 graphics.fill(this.getX() + 1, this.getY() + 3, this.getX() + 3, this.getY() + this.height - 3, accent);
             }

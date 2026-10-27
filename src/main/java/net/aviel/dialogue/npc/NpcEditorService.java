@@ -48,7 +48,15 @@ public final class NpcEditorService {
                 || player.distanceToSqr(npc) > 64.0D * 64.0D) {
             return;
         }
-        apply(player, npc, action == null ? "" : action.toLowerCase(Locale.ROOT), value == null ? "" : value, number);
+        String normalizedAction = action == null ? "" : action.toLowerCase(Locale.ROOT);
+        String text = value == null ? "" : value;
+        int maxLength = normalizedAction.equals("combat_save") ? 16384 : normalizedAction.equals("dialogue_palette") ? 2048 : 260;
+        if (text.length() > maxLength) return;
+        if (normalizedAction.startsWith("combat_")) {
+            NpcCombatEditorService.handle(player, npc, normalizedAction, text);
+        } else {
+            apply(player, npc, normalizedAction, text, number);
+        }
     }
 
     private static void apply(ServerPlayer player, DialogueNpcEntity npc, String action, String value, float number) {
@@ -70,6 +78,14 @@ public final class NpcEditorService {
             case "scale" -> npc.setModelScale(Mth.clamp(number, 0.25F, 3.0F));
             case "look" -> npc.setLookDistance(Mth.clamp(number, 0.0F, 64.0F));
             case "template" -> applyTemplate(player, npc, value);
+            case "dialogue_test" -> NpcDialogueService.openDialogue(player, npc);
+            case "dialogue_palette" -> {
+                try {
+                    npc.setDialoguePalette(value);
+                } catch (RuntimeException ex) {
+                    player.displayClientMessage(Component.translatable("message.adm.npc.editor.palette_invalid"), true);
+                }
+            }
             case "equip_from_me" -> {
                 for (EquipmentSlot slot : NpcEquipment.SLOTS) {
                     npc.setItemSlot(slot, player.getItemBySlot(slot).copy());

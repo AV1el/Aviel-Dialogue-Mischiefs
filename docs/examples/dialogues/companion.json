@@ -1,0 +1,41 @@
+{
+  "title": "Companion",
+  "speaker": "Warden",
+  "nodes": {
+    "start": {
+      "text": "What are your orders?",
+      "choices": [
+        {
+          "text": "Follow me.",
+          "commands": ["npc companion {npc_uuid} follow {player}"],
+          "next": "start"
+        },
+        {
+          "text": "Guard this spot.",
+          "commands": ["npc companion {npc_uuid} guard"],
+          "next": "start"
+        },
+        {
+          "text": "Help me fight.",
+          "commands": ["npc companion {npc_uuid} combat true"],
+          "next": "start"
+        },
+        {
+          "text": "Do not fight.",
+          "commands": ["npc companion {npc_uuid} combat false"],
+          "next": "start"
+        },
+        {
+          "text": "You are free to leave.",
+          "commands": ["npc companion {npc_uuid} release"],
+          "next": "start"
+        },
+        {
+          "text": "Stand down.",
+          "commands": ["npc companion {npc_uuid} idle"],
+          "next": "start"
+        }
+      ]
+    }
+  }
+}

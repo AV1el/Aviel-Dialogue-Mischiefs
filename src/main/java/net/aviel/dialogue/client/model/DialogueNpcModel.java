@@ -7,6 +7,7 @@ import net.aviel.dialogue.npc.emote.NpcJsonEmoteClip;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.core.Direction;
+import net.minecraft.world.entity.HumanoidArm;
 
 public class DialogueNpcModel extends PlayerModel<DialogueNpcEntity> {
     public DialogueNpcModel(ModelPart root, boolean slim) {
@@ -22,8 +23,15 @@ public class DialogueNpcModel extends PlayerModel<DialogueNpcEntity> {
             float netHeadYaw,
             float headPitch
     ) {
+        boolean rightHanded = entity.getMainArm() == HumanoidArm.RIGHT;
+        ArmPose mainPose = entity.getMainHandItem().isEmpty() ? ArmPose.EMPTY : ArmPose.ITEM;
+        ArmPose offPose = entity.getOffhandItem().isEmpty() ? ArmPose.EMPTY : ArmPose.ITEM;
+        this.rightArmPose = rightHanded ? mainPose : offPose;
+        this.leftArmPose = rightHanded ? offPose : mainPose;
         super.setupAnim(entity, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch);
-        applyJsonEmote(entity, ageInTicks);
+        if (!entity.hasCombatAnimation()) {
+            applyJsonEmote(entity, ageInTicks);
+        }
     }
 
     private void applyJsonEmote(DialogueNpcEntity entity, float ageInTicks) {

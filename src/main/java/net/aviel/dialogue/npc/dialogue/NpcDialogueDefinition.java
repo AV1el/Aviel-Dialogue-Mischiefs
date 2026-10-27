@@ -19,7 +19,8 @@ import java.util.Map;
 public final class NpcDialogueDefinition {
     public static final String DEFAULT_START_NODE = "start";
     public static final int DEFAULT_TEXT_SPEED = 2;
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting()
+            .registerTypeAdapter(net.aviel.dialogue.npc.social.OpinionChange.class, net.aviel.dialogue.npc.social.OpinionChange.SERIALIZER).create();
 
     private final String title;
     private final String speaker;
@@ -282,7 +283,8 @@ public final class NpcDialogueDefinition {
                     DialogueCondition.read(object),
                     readItemRules(object.get("requires_items")),
                     readItemRules(object.get("take_items")),
-                    readItemRules(object.get("give_items"))
+                    readItemRules(object.get("give_items")),
+                    net.aviel.dialogue.npc.social.OpinionChange.read(object)
             ));
             index++;
         }
@@ -409,8 +411,18 @@ public final class NpcDialogueDefinition {
                 clean(readString(source, "button_hover_color", readString(root, "button_hover_color", fallback.buttonHoverColor())), 16),
                 clean(readString(source, "button_disabled_color", readString(root, "button_disabled_color", fallback.buttonDisabledColor())), 16),
                 clean(readString(source, "button_text_color", readString(root, "button_text_color", fallback.buttonTextColor())), 16),
-                clean(readString(source, "button_disabled_text_color", readString(root, "button_disabled_text_color", fallback.buttonDisabledTextColor())), 16)
+                clean(readString(source, "button_disabled_text_color", readString(root, "button_disabled_text_color", fallback.buttonDisabledTextColor())), 16),
+                readExtraColors(source, root)
         );
+    }
+
+    private static java.util.Map<String, String> readExtraColors(JsonObject source, JsonObject root) {
+        var colors = new java.util.HashMap<String, String>();
+        for (String key : DialoguePalette.EXTRA_KEYS) {
+            String value = clean(readString(source, key, readString(root, key, "")), 16);
+            if (!value.isEmpty()) colors.put(key, value);
+        }
+        return colors;
     }
 
     private static String normalizeSoundMode(String mode) {
@@ -567,8 +579,16 @@ public final class NpcDialogueDefinition {
             String buttonHoverColor,
             String buttonDisabledColor,
             String buttonTextColor,
-            String buttonDisabledTextColor
+            String buttonDisabledTextColor,
+            java.util.Map<String, String> colors
     ) {
+        public DialogueStyle(String outerColor, String textBackground, String choicesBackground, String dividerColor,
+                             String buttonColor, String buttonHoverColor, String buttonDisabledColor,
+                             String buttonTextColor, String buttonDisabledTextColor) {
+            this(outerColor, textBackground, choicesBackground, dividerColor, buttonColor, buttonHoverColor,
+                    buttonDisabledColor, buttonTextColor, buttonDisabledTextColor, java.util.Map.of());
+        }
+
         public static final DialogueStyle DEFAULT = new DialogueStyle(
                 "#66000000",
                 "#F60F0817",
@@ -578,10 +598,12 @@ public final class NpcDialogueDefinition {
                 "#FF3C2A55",
                 "#FF241732",
                 "#FFF2E7FF",
-                "#FF6A5F78"
+                "#FF6A5F78",
+                java.util.Map.of()
         );
 
         public DialogueStyle {
+            colors = java.util.Map.copyOf(colors);
             outerColor = clean(outerColor, 16);
             textBackground = clean(textBackground, 16);
             choicesBackground = clean(choicesBackground, 16);
@@ -591,6 +613,10 @@ public final class NpcDialogueDefinition {
             buttonDisabledColor = clean(buttonDisabledColor, 16);
             buttonTextColor = clean(buttonTextColor, 16);
             buttonDisabledTextColor = clean(buttonDisabledTextColor, 16);
+        }
+
+        public String color(String key, String fallback) {
+            return colors.getOrDefault(key, fallback);
         }
     }
 
@@ -622,8 +648,22 @@ public final class NpcDialogueDefinition {
             DialogueCondition condition,
             List<ItemRule> requiresItems,
             List<ItemRule> takeItems,
-            List<ItemRule> giveItems
+            List<ItemRule> giveItems,
+            @com.google.gson.annotations.SerializedName("opinion_changes") List<net.aviel.dialogue.npc.social.OpinionChange> opinionChanges
     ) {
+        public Choice(int serverIndex, String id, String text, String next, boolean close, String action, String trade,
+                      List<String> commands, List<String> addTags, List<String> removeTags, List<String> setFlags,
+                      List<String> addFlags, List<String> clearFlags, List<String> removeFlags, List<String> requiresFlags,
+                      List<String> missingFlags, List<String> requiresMissingFlags, List<String> requiresTags,
+                      List<String> missingTags, List<String> requiresMissingTags, List<String> requiresChoices,
+                      List<String> requiresAdvancements, List<String> missingAdvancements, List<KillRule> requiresKills,
+                      DialogueCondition condition, List<ItemRule> requiresItems, List<ItemRule> takeItems, List<ItemRule> giveItems) {
+            this(serverIndex, id, text, next, close, action, trade, commands, addTags, removeTags, setFlags, addFlags,
+                    clearFlags, removeFlags, requiresFlags, missingFlags, requiresMissingFlags, requiresTags, missingTags,
+                    requiresMissingTags, requiresChoices, requiresAdvancements, missingAdvancements, requiresKills,
+                    condition, requiresItems, takeItems, giveItems, List.of());
+        }
+
         public Choice(
                 int serverIndex,
                 String id,
@@ -683,6 +723,7 @@ public final class NpcDialogueDefinition {
         }
 
         public Choice {
+            opinionChanges = List.copyOf(opinionChanges == null ? List.of() : opinionChanges);
             serverIndex = Math.max(0, serverIndex);
             id = clean(id, 80);
             text = clean(text, 140);

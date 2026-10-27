@@ -1,0 +1,46 @@
+{
+  "title": "Trust of the Warden",
+  "nodes": {
+    "start": {
+      "text": "Bring three loaves of bread for our patrol. Earn my trust for a special assignment.",
+      "choices": [
+        {
+          "text": "I will bring the supplies.",
+          "missing_flags": ["warden_supplies_accepted"],
+          "set_flags": ["warden_supplies_accepted"],
+          "next": "start"
+        },
+        {
+          "text": "Here are the supplies.",
+          "requires_flags": ["warden_supplies_accepted"],
+          "missing_flags": ["warden_supplies_resolved"],
+          "take_items": [{"item":"minecraft:bread","count":3}],
+          "set_flags": ["warden_supplies_resolved"],
+          "opinion_changes": [{"amount":25},{"faction":"wardens","amount":10}],
+          "next": "start"
+        },
+        {
+          "text": "I failed to deliver the supplies.",
+          "requires_flags": ["warden_supplies_accepted"],
+          "missing_flags": ["warden_supplies_resolved"],
+          "set_flags": ["warden_supplies_resolved"],
+          "opinion_changes": [{"amount":-40},{"faction":"wardens","amount":-10}],
+          "next": "start"
+        },
+        {
+          "text": "Give me the special assignment.",
+          "condition": {"type":"opinion","min":80},
+          "missing_flags": ["warden_elite_accepted"],
+          "set_flags": ["warden_elite_accepted"],
+          "next": "elite"
+        },
+        { "text": "Show your wares.", "trade": "opinion_shop.json" },
+        { "text": "Goodbye.", "close": true }
+      ]
+    },
+    "elite": {
+      "text": "You have earned my trust. Meet the patrol at the north gate.",
+      "choices": [{"text":"Understood.","close":true}]
+    }
+  }
+}

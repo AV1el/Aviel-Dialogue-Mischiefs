@@ -1,0 +1,16 @@
+{
+  "name": "Opinion Warden",
+  "dialogue": "opinion_warden.json",
+  "invulnerable": false,
+  "combat": { "health": 40, "damage": 3, "speed": 0.35, "policy": "hostile" },
+  "social": {
+    "faction": "wardens",
+    "combat": true,
+    "opinion": {
+      "scope": "npc",
+      "hostile_at": -50,
+      "discounts": [ { "min": 50, "percent": 10 }, { "min": 80, "percent": 20 } ]
+    }
+  },
+  "equipment": { "mainhand": "minecraft:iron_sword", "chest": "minecraft:iron_chestplate" }
+}

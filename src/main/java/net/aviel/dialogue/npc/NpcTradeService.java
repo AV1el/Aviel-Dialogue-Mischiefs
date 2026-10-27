@@ -37,6 +37,12 @@ import java.util.UUID;
 public final class NpcTradeService {
     private static final int MAX_TRADE_JSON_CHARS = 30000;
     private static final DialogueFileCache<NpcTradeDefinition> FILE_CACHE = new DialogueFileCache<>(MAX_TRADE_JSON_CHARS);
+    private record Quote(UUID npc, String trade, String definition, int discount, long created) { }
+    private static final Map<UUID, Quote> QUOTES = new java.util.HashMap<>();
+
+    public static void forgetPlayer(UUID player) {
+        QUOTES.remove(player);
+    }
 
     private NpcTradeService() {
     }
@@ -47,6 +53,11 @@ public final class NpcTradeService {
 
     public static void invalidateCaches() {
         FILE_CACHE.clear();
+        QUOTES.clear();
+    }
+
+    public static void stopped(net.neoforged.neoforge.event.server.ServerStoppedEvent event) {
+        invalidateCaches();
     }
 
     public static List<String> listTradeFiles(MinecraftServer server) {
@@ -137,11 +148,16 @@ public final class NpcTradeService {
             }
             String json = readTradeJson(player.server, resolved);
             NpcTradeDefinition definition = NpcTradeDefinition.fromJson(json);
+            int discount = net.aviel.dialogue.npc.social.NpcSocialService.discount(player, target);
+            String pricedJson = net.aviel.dialogue.npc.social.OpinionPrices.clientJson(json, discount);
+            String annotatedJson = annotateLocks(player, definition, pricedJson);
+            if (annotatedJson.length() > MAX_TRADE_JSON_CHARS) throw new IOException("Priced trade JSON exceeds the network size limit");
+            QUOTES.put(player.getUUID(), new Quote(target.getUUID(), resolved, definition.toJson(), discount, System.nanoTime()));
             PacketDistributor.sendToPlayer(player, new OpenNpcTradePacket(
                     target.getUUID(),
                     NpcDialogueService.displayNameFor(target),
                     resolved,
-                    annotateLocks(player, definition, json)
+                    annotatedJson
             ));
         } catch (IOException | RuntimeException ex) {
             AvielsDialogueMod.LOGGER.warn("Could not open trade {} for player {}", normalized, player.getGameProfile().getName(), ex);
@@ -161,17 +177,30 @@ public final class NpcTradeService {
         }
         int safeAmount = Math.max(1, Math.min(64, amount));
         try {
+            Quote quote = QUOTES.get(player.getUUID());
+            if (quote == null || !quote.npc().equals(npcUuid) || !quote.trade().equals(normalizeFileName(tradeFile))
+                    || System.nanoTime() - quote.created() > java.util.concurrent.TimeUnit.MINUTES.toNanos(5)) {
+                player.displayClientMessage(Component.translatable("message.adm.npc.trade.msg.reopen"), true);
+                return;
+            }
             NpcTradeDefinition definition = loadTrade(player.server, tradeFile);
+            int discount = net.aviel.dialogue.npc.social.NpcSocialService.discount(player, target);
+            if (quote.discount() != discount || !quote.definition().equals(definition.toJson())) {
+                openTrade(player, target, tradeFile);
+                player.displayClientMessage(Component.translatable("message.adm.npc.trade.msg.price_changed"), true);
+                return;
+            }
             NpcTradeDefinition.Offer offer = definition.offerByIdOrIndex(offerId, offerIndex);
             if (offer == null || !isOfferAvailable(player, offer)) {
                 player.displayClientMessage(Component.translatable("message.adm.npc.trade.msg.unavailable"), true);
                 return;
             }
-            if (!hasItems(player, offer.cost(), safeAmount)) {
+            var cost = net.aviel.dialogue.npc.social.OpinionPrices.costs(offer.cost(), discount);
+            if (!hasItems(player, cost, safeAmount)) {
                 player.displayClientMessage(Component.translatable("message.adm.npc.trade.msg.not_enough"), true);
                 return;
             }
-            if (!removeItems(player, offer.cost(), safeAmount)) {
+            if (!removeItems(player, cost, safeAmount)) {
                 player.displayClientMessage(Component.translatable("message.adm.npc.trade.msg.take_failed"), true);
                 return;
             }

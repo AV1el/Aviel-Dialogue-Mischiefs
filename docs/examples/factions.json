@@ -1,0 +1,7 @@
+{
+  "factions": {
+    "wardens": { "relations": { "bandits": "hostile", "merchants": "allied" } },
+    "bandits": {},
+    "merchants": {}
+  }
+}

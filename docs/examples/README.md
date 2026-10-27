@@ -27,6 +27,9 @@ Then in game:
 
 ## Notes
 
+- See [factions and opinions](../factions-opinions.md) for `factions.json`,
+  `opinion_warden`, `opinion_bandit`, and the opinion-based shop/quest examples.
+
 - `hunter_quest.json` contains all quest logic. Its Russian text-only overlay lives at
   `dialogues/langs/ru_ru/hunter_quest.json`. The quest also demonstrates nested `all`, `any`,
   and `not` conditions.

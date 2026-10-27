@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.aviel.dialogue.entity.DialogueNpcEntity;
+import net.aviel.dialogue.entity.ai.NpcCombatProfile;
 import net.aviel.dialogue.npc.storage.DialogueStorage;
 import net.aviel.dialogue.util.JsonReaders;
 import net.minecraft.network.chat.Component;
@@ -82,7 +83,29 @@ public final class NpcTemplateService {
         String model = NpcDialogueService.normalizePlayerModel(
                 JsonReaders.readString(object, "model", JsonReaders.readString(object, "player_model", DialogueNpcEntity.DEFAULT_PLAYER_MODEL)));
         List<NpcEquipment.Entry> equipment = NpcEquipment.readFromJson(object);
-        return new NpcTemplate(normalized, name, dialogue, scale, nameVisible, invulnerable, lookDistance, skin, model, equipment);
+        NpcCombatProfile combat = null;
+        if (object.has("combat")) {
+            try {
+                combat = NpcCombatProfile.fromJson(object.getAsJsonObject("combat"));
+            } catch (RuntimeException ex) {
+                throw new IOException("Invalid NPC combat profile: " + ex.getMessage(), ex);
+            }
+        }
+        net.aviel.dialogue.npc.social.NpcSocialProfile social;
+        try {
+            social = object.has("social") ? net.aviel.dialogue.npc.social.NpcSocialProfile.read(object.getAsJsonObject("social"))
+                    : net.aviel.dialogue.npc.social.NpcSocialProfile.DEFAULT;
+        } catch (RuntimeException ex) {
+            throw new IOException("Invalid NPC social profile: " + ex.getMessage(), ex);
+        }
+        String dialogueColor;
+        try {
+            dialogueColor = net.aviel.dialogue.npc.dialogue.DialoguePalette.normalizePalette(object.has("dialogue_style")
+                    ? object.getAsJsonObject("dialogue_style").toString() : JsonReaders.readString(object, "dialogue_color", ""));
+        } catch (RuntimeException ex) {
+            throw new IOException("Invalid NPC dialogue palette", ex);
+        }
+        return new NpcTemplate(normalized, name, dialogue, scale, nameVisible, invulnerable, lookDistance, skin, model, equipment, combat, social, dialogueColor);
     }
 
     public static void applyTemplate(DialogueNpcEntity npc, NpcTemplate template) {
@@ -93,12 +116,17 @@ public final class NpcTemplateService {
         npc.setCustomName(Component.literal(template.name().isBlank() ? template.id() : template.name()));
         npc.setCustomNameVisible(template.nameVisible());
         npc.setDialogueFile(template.dialogueFile());
+        npc.setDialoguePalette(template.dialogueColor());
         npc.setModelScale(template.scale());
         npc.setDialogueInvulnerable(template.invulnerable());
         npc.setLookDistance(template.lookDistance());
         npc.setSkin(template.skin());
         npc.setPlayerModel(template.model());
         NpcEquipment.apply(npc, template.equipment());
+        npc.setSocialProfile(template.social());
+        if (template.combat() != null) {
+            npc.companion().applyProfile(template.combat());
+        }
         npc.setPersistenceRequired();
     }
 
@@ -107,12 +135,15 @@ public final class NpcTemplateService {
         JsonObject root = new JsonObject();
         root.addProperty("name", npc.getProfileName().replace('§', '&'));
         root.addProperty("dialogue", npc.getDialogueFile());
+        root.add("dialogue_style", net.aviel.dialogue.npc.dialogue.DialoguePalette.read(npc.getDialoguePalette()));
         root.addProperty("scale", npc.getModelScale());
         root.addProperty("name_visible", npc.isCustomNameVisible());
         root.addProperty("invulnerable", npc.isDialogueInvulnerable());
         root.addProperty("look_distance", npc.getLookDistance());
         root.addProperty("model", npc.getPlayerModel());
         root.addProperty("skin", npc.getSkin());
+        root.add("combat", npc.companion().profile().toJson());
+        root.add("social", npc.social().toJson());
         if (NpcEquipment.hasAny(npc)) {
             root.add("equipment", NpcEquipment.toJson(npc));
         }
@@ -137,8 +168,22 @@ public final class NpcTemplateService {
             float lookDistance,
             String skin,
             String model,
-            List<NpcEquipment.Entry> equipment
+            List<NpcEquipment.Entry> equipment,
+            NpcCombatProfile combat,
+            net.aviel.dialogue.npc.social.NpcSocialProfile social,
+            String dialogueColor
     ) {
+        public NpcTemplate(String id, String name, String dialogueFile, float scale, boolean nameVisible,
+                           boolean invulnerable, float lookDistance, String skin, String model, List<NpcEquipment.Entry> equipment, NpcCombatProfile combat) {
+            this(id, name, dialogueFile, scale, nameVisible, invulnerable, lookDistance, skin, model, equipment, combat,
+                    net.aviel.dialogue.npc.social.NpcSocialProfile.DEFAULT, "");
+        }
+
+        public NpcTemplate(String id, String name, String dialogueFile, float scale, boolean nameVisible,
+                           boolean invulnerable, float lookDistance, String skin, String model, List<NpcEquipment.Entry> equipment) {
+            this(id, name, dialogueFile, scale, nameVisible, invulnerable, lookDistance, skin, model, equipment, null);
+        }
+
         public NpcTemplate {
             id = normalizeTemplateId(id);
             name = name == null ? "" : name.trim();
@@ -147,6 +192,7 @@ public final class NpcTemplateService {
             lookDistance = clampFloat(lookDistance, 0.0F, 64.0F);
             skin = NpcDialogueService.normalizeSkin(skin);
             model = NpcDialogueService.normalizePlayerModel(model);
+            dialogueColor = net.aviel.dialogue.npc.dialogue.DialoguePalette.normalizePalette(dialogueColor);
             equipment = List.copyOf(equipment == null ? List.of() : equipment);
         }
     }

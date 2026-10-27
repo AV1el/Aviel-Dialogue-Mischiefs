@@ -89,6 +89,9 @@ public class AvielsDialogueMod {
         NeoForge.EVENT_BUS.addListener(this::registerCommands);
         NeoForge.EVENT_BUS.addListener(this::addReloadListeners);
         NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedOut);
+        NeoForge.EVENT_BUS.addListener(net.aviel.dialogue.npc.social.NpcSocialService::starting);
+        NeoForge.EVENT_BUS.addListener(net.aviel.dialogue.npc.social.NpcSocialService::stopped);
+        NeoForge.EVENT_BUS.addListener(NpcTradeService::stopped);
         NeoForge.EVENT_BUS.addListener(net.aviel.dialogue.npc.storage.ServerAssetPack::onServerStarting);
         NeoForge.EVENT_BUS.addListener(net.aviel.dialogue.npc.storage.ServerAssetPack::onServerStopped);
         NeoForge.EVENT_BUS.addListener(net.aviel.dialogue.npc.storage.ServerAssetPack::onPlayerLoggedIn);
@@ -101,7 +104,7 @@ public class AvielsDialogueMod {
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar(MODID).versioned("1");
+        var registrar = event.registrar(MODID).versioned("6");
         registrar.playToClient(OpenNpcDialoguePacket.TYPE, OpenNpcDialoguePacket.STREAM_CODEC, OpenNpcDialoguePacket::handle);
         registrar.playToServer(NpcDialogueChoicePacket.TYPE, NpcDialogueChoicePacket.STREAM_CODEC, NpcDialogueChoicePacket::handle);
         registrar.playToClient(OpenNpcTradePacket.TYPE, OpenNpcTradePacket.STREAM_CODEC, OpenNpcTradePacket::handle);
@@ -109,6 +112,8 @@ public class AvielsDialogueMod {
         registrar.playToClient(NpcEmoteSyncPacket.TYPE, NpcEmoteSyncPacket.STREAM_CODEC, NpcEmoteSyncPacket::handle);
         registrar.playToServer(NpcDialogueAnimationPacket.TYPE, NpcDialogueAnimationPacket.STREAM_CODEC, NpcDialogueAnimationPacket::handle);
         registrar.playToClient(OpenNpcEditorPacket.TYPE, OpenNpcEditorPacket.STREAM_CODEC, OpenNpcEditorPacket::handle);
+        registrar.playToClient(net.aviel.dialogue.network.OpenNpcCombatEditorPacket.TYPE,
+                net.aviel.dialogue.network.OpenNpcCombatEditorPacket.STREAM_CODEC, net.aviel.dialogue.network.OpenNpcCombatEditorPacket::handle);
         registrar.playToServer(NpcEditorActionPacket.TYPE, NpcEditorActionPacket.STREAM_CODEC, NpcEditorActionPacket::handle);
         registrar.playToServer(NpcMoveToPacket.TYPE, NpcMoveToPacket.STREAM_CODEC, NpcMoveToPacket::handle);
     }
@@ -124,6 +129,7 @@ public class AvielsDialogueMod {
     }
 
     private void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        NpcTradeService.forgetPlayer(event.getEntity().getUUID());
         DialogueSessionManager.closeAllFor(event.getEntity().getUUID());
         NpcSelections.forget(event.getEntity().getUUID());
     }

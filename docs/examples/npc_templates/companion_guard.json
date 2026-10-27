@@ -1,0 +1,30 @@
+{
+  "name": "Dungeon Warden",
+  "dialogue": "companion.json",
+  "dialogue_style": {
+    "border_color": "#7CC9B4",
+    "divider_color": "#7CC9B4",
+    "text_color": "#F5F5F5",
+    "speaker_color": "#FFD36B",
+    "button_hover_color": "#345449"
+  },
+  "invulnerable": false,
+  "combat": {
+    "health": 40,
+    "damage": 3,
+    "attack_speed": 4,
+    "attack_range": 3,
+    "knockback": 0.4,
+    "knockback_resistance": 0.2,
+    "armor": 2,
+    "speed": 0.35,
+    "radius": 12,
+    "movement_multiplier": 0.8,
+    "policy": "hostile",
+    "targets": []
+  },
+  "equipment": {
+    "mainhand": "minecraft:iron_sword",
+    "chest": "minecraft:iron_chestplate"
+  }
+}

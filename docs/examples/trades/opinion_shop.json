@@ -1,0 +1,11 @@
+{
+  "title": "Warden Supplies",
+  "offers": [
+    {
+      "id": "patrol_bread",
+      "title": "Bread",
+      "cost": [{"item":"minecraft:emerald","count":10}],
+      "result": [{"item":"minecraft:bread","count":8}]
+    }
+  ]
+}

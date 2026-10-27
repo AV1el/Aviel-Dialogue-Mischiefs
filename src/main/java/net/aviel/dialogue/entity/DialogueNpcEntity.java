@@ -1,6 +1,7 @@
 package net.aviel.dialogue.entity;
 
 import net.aviel.dialogue.entity.ai.NpcWalkToPoiGoal;
+import net.aviel.dialogue.entity.ai.NpcCompanion;
 import net.aviel.dialogue.npc.NpcDialogueService;
 import net.aviel.dialogue.npc.NpcEditorService;
 import net.aviel.dialogue.npc.NpcTemplateService;
@@ -27,6 +28,7 @@ import net.minecraft.world.level.Level;
 
 public class DialogueNpcEntity extends PathfinderMob {
     private static final EntityDataAccessor<String> DATA_DIALOGUE_FILE = SynchedEntityData.defineId(DialogueNpcEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<String> DATA_DIALOGUE_COLOR = SynchedEntityData.defineId(DialogueNpcEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<String> DATA_TEMPLATE_ID = SynchedEntityData.defineId(DialogueNpcEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Float> DATA_MODEL_SCALE = SynchedEntityData.defineId(DialogueNpcEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Boolean> DATA_DIALOGUE_INVULNERABLE = SynchedEntityData.defineId(DialogueNpcEntity.class, EntityDataSerializers.BOOLEAN);
@@ -42,6 +44,41 @@ public class DialogueNpcEntity extends PathfinderMob {
     private static final int RETURN_LOOK_DELAY_TICKS = 45;
 
     private float homeYaw = 0.0F;
+    private final NpcCompanion companion = new NpcCompanion(this);
+    private net.aviel.dialogue.npc.social.NpcSocialProfile social = net.aviel.dialogue.npc.social.NpcSocialProfile.DEFAULT;
+
+    public net.aviel.dialogue.npc.social.NpcSocialProfile social() {
+        return social;
+    }
+
+    public void setSocialProfile(net.aviel.dialogue.npc.social.NpcSocialProfile profile) {
+        social = profile;
+        setTarget(null);
+        if (profile.combat()) companion.setCombat(true);
+    }
+
+    @Override
+    public boolean isAlliedTo(net.minecraft.world.entity.Entity other) {
+        return super.isAlliedTo(other) || other instanceof DialogueNpcEntity npc
+                && net.aviel.dialogue.npc.social.NpcSocialService.allied(this, npc);
+    }
+
+    public NpcCompanion companion() {
+        return companion;
+    }
+
+    public String getDialoguePalette() {
+        return entityData.get(DATA_DIALOGUE_COLOR);
+    }
+
+    public void setDialoguePalette(String colors) {
+        entityData.set(DATA_DIALOGUE_COLOR, net.aviel.dialogue.npc.dialogue.DialoguePalette.normalizePalette(colors));
+    }
+
+    @Override
+    public boolean isWithinMeleeAttackRange(net.minecraft.world.entity.LivingEntity target) {
+        return companion.canReach(target);
+    }
     private int lastLookAtPlayerTick = -RETURN_LOOK_DELAY_TICKS;
 
     /** Set while the NPC is walking somewhere a dialogue sent it. */
@@ -58,6 +95,9 @@ public class DialogueNpcEntity extends PathfinderMob {
     public static AttributeSupplier.Builder createAttributes() {
         return PathfinderMob.createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0D)
+                .add(Attributes.ATTACK_DAMAGE, 3.0D)
+                .add(Attributes.ATTACK_SPEED, 4.0D)
+                .add(Attributes.ATTACK_KNOCKBACK, 0.0D)
                 // Villager pace. The NPC still stands still until a dialogue sends it somewhere,
                 // because nothing moves it without a destination.
                 .add(Attributes.MOVEMENT_SPEED, 0.5D)
@@ -68,6 +108,7 @@ public class DialogueNpcEntity extends PathfinderMob {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(DATA_DIALOGUE_FILE, "");
+        builder.define(DATA_DIALOGUE_COLOR, "");
         builder.define(DATA_TEMPLATE_ID, "");
         builder.define(DATA_MODEL_SCALE, DEFAULT_MODEL_SCALE);
         builder.define(DATA_DIALOGUE_INVULNERABLE, true);
@@ -82,6 +123,7 @@ public class DialogueNpcEntity extends PathfinderMob {
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(1, new NpcWalkToPoiGoal(this));
+        this.goalSelector.addGoal(2, new NpcCompanion.AttackGoal(this));
     }
 
     @Override
@@ -97,8 +139,16 @@ public class DialogueNpcEntity extends PathfinderMob {
     }
 
     @Override
+    public void aiStep() {
+        super.aiStep();
+        // PathfinderMob does not advance arm swings; humanoid subclasses must do it on both sides.
+        updateSwingTime();
+    }
+
+    @Override
     public void tick() {
         super.tick();
+        companion.tick();
         updateLookTarget();
     }
 
@@ -134,6 +184,7 @@ public class DialogueNpcEntity extends PathfinderMob {
 
     @Override
     public boolean hurt(DamageSource source, float amount) {
+        if (source.getEntity() instanceof DialogueNpcEntity npc && isAlliedTo(npc)) return false;
         return !isDialogueInvulnerable() && super.hurt(source, amount);
     }
 
@@ -234,6 +285,10 @@ public class DialogueNpcEntity extends PathfinderMob {
         return !getNpcEmoteFileName().isBlank();
     }
 
+    public boolean hasCombatAnimation() {
+        return isAggressive() || this.swinging;
+    }
+
     public void playNpcEmote(String fileName, long startTick, boolean repeat) {
         String normalized = sanitizeEmoteFileName(fileName);
         if (normalized.isBlank()) {
@@ -274,6 +329,9 @@ public class DialogueNpcEntity extends PathfinderMob {
 
     /** Sends the NPC walking; the goal picks it up on the next tick. */
     public void walkTo(BlockPos destination, MoveSpeed speed) {
+        if (destination != null) {
+            this.setTarget(null);
+        }
         this.moveDestination = destination == null ? null : destination.immutable();
         this.moveSpeed = speed == null ? MoveSpeed.WALK : speed;
         if (this.moveDestination == null) {
@@ -305,6 +363,8 @@ public class DialogueNpcEntity extends PathfinderMob {
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
+        companion.save(tag);
+        tag.putString("SocialProfile", social.toJson().toString());
         tag.putString("DialogueFile", getDialogueFile());
         tag.putString("NpcTemplate", getTemplateId());
         tag.putFloat("ModelScale", getModelScale());
@@ -312,6 +372,7 @@ public class DialogueNpcEntity extends PathfinderMob {
         tag.putFloat("LookDistance", getLookDistance());
         tag.putString("Skin", getSkin());
         tag.putString("PlayerModel", getPlayerModel());
+        tag.putString("DialoguePalette", getDialoguePalette());
         tag.putFloat("HomeYaw", getHomeYaw());
         tag.putString("EmoteFile", getNpcEmoteFileName());
         tag.putLong("EmoteStartTick", getNpcEmoteStartTick());
@@ -326,6 +387,15 @@ public class DialogueNpcEntity extends PathfinderMob {
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
+        companion.load(tag);
+        if (tag.contains("SocialProfile")) {
+            try {
+                social = net.aviel.dialogue.npc.social.NpcSocialProfile.read(com.google.gson.JsonParser.parseString(tag.getString("SocialProfile")).getAsJsonObject());
+            } catch (RuntimeException ex) {
+                social = net.aviel.dialogue.npc.social.NpcSocialProfile.DEFAULT;
+                net.aviel.dialogue.AvielsDialogueMod.LOGGER.warn("Invalid saved NPC social profile", ex);
+            }
+        }
         setDialogueFile(tag.getString("DialogueFile"));
         setTemplateId(tag.getString("NpcTemplate"));
         setModelScale(tag.contains("ModelScale") ? tag.getFloat("ModelScale") : DEFAULT_MODEL_SCALE);
@@ -333,6 +403,12 @@ public class DialogueNpcEntity extends PathfinderMob {
         setLookDistance(tag.contains("LookDistance") ? tag.getFloat("LookDistance") : DEFAULT_LOOK_DISTANCE);
         setSkin(tag.getString("Skin"));
         setPlayerModel(tag.getString("PlayerModel"));
+        try {
+            setDialoguePalette(tag.getString(tag.contains("DialoguePalette") ? "DialoguePalette" : "DialogueColor"));
+        } catch (RuntimeException ex) {
+            setDialoguePalette("");
+            net.aviel.dialogue.AvielsDialogueMod.LOGGER.warn("Invalid saved NPC dialogue palette", ex);
+        }
         setHomeYaw(tag.contains("HomeYaw") ? tag.getFloat("HomeYaw") : this.getYRot());
         String emoteFile = tag.getString("EmoteFile");
         if (emoteFile.isBlank()) {
@@ -365,7 +441,7 @@ public class DialogueNpcEntity extends PathfinderMob {
 
     private void updateLookTarget() {
         // While walking the goal owns the head, otherwise the NPC would moonwalk staring at players.
-        if (this.level().isClientSide || isWalking()) {
+        if (this.level().isClientSide || isWalking() || companion.mode() != NpcCompanion.Mode.IDLE) {
             return;
         }
         float distance = getLookDistance();

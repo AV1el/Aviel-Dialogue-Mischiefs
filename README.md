@@ -22,9 +22,15 @@ Use it when you want:
 - Item requirements, item taking, and item rewards
 - Per-language dialogue overlay files
 - Trade shops opened from dialogue choices
+- NPC companions with follow/guard orders and configurable melee combat
+- A tabbed NPC editor with template stats and per-NPC dialogue color palettes
+- JSON-defined NPC factions and explicit player opinion changes (-100 to 100)
+- Opinion conditions, hostility thresholds and per-player trade discounts
 - NPC emotes (keyframe JSON animations) triggered from dialogue text
 
 ## Supported Version
+
+See [factions and opinions](docs/factions-opinions.md) for configuration, quest examples and testing commands.
 
 - Minecraft: `1.21.1`
 - Loader: `NeoForge`
@@ -276,6 +282,10 @@ More details are available in:
 - [`docs/dialogue-guide.md`](docs/dialogue-guide.md) — the full guide, from a first dialogue to the Java API
 - [`docs/schemas/`](docs/schemas/) — JSON Schemas for dialogues, trades and NPC templates; point your editor at them for autocomplete and validation
 - [`docs/examples/`](docs/examples/) — ready-to-copy starter set: guard NPC template, quest dialogue with flags and item turn-in, and a flag-gated trade shop
+- [`docs/companions.md`](docs/companions.md) - companion commands, combat settings and the NPC editor
+- [`docs/factions-opinions.md`](docs/factions-opinions.md) - JSON factions, opinion effects and trade discounts
+- [`docs/releases/0.9.0.md`](docs/releases/0.9.0.md) - 0.9.0 release notes
+- [`docs/releasing.md`](docs/releasing.md) - GitHub, Modrinth and CurseForge publishing checklist
 
 ## Project Status
 

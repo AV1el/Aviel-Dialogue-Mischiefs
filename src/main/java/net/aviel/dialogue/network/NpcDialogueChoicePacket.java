@@ -68,6 +68,12 @@ public record NpcDialogueChoicePacket(UUID npcUuid, String nodeId, int choiceInd
                 DialogueSessionManager.advance(player, definition, choice);
                 if (!choice.trade().isBlank()) {
                     NpcTradeService.openTrade(player, target, choice.trade());
+                } else if (!choice.opinionChanges().isEmpty() && DialogueSessionManager.get(player) != null) {
+                    var translation = DialogueRepository.loadDialogueTranslation(player.server, dialogueFile, player.clientInformation().language());
+                    var json = net.aviel.dialogue.npc.DialogueClientJson.toClientJson(definition, translation, player, target);
+                    net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new OpenNpcDialoguePacket(
+                            target.getUUID(), NpcDialogueService.displayNameFor(target), dialogueFile,
+                            DialogueSessionManager.get(player).currentNode(), json, true));
                 }
             }
         } catch (Exception ex) {

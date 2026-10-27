@@ -29,7 +29,7 @@ public final class DialogueConditionEvaluator {
             "dimension", "biome", "game_mode", "gamemode", "level", "xp_level", "experience",
             "experience_points", "xp", "health", "food", "hunger", "permission", "permission_level",
             "score", "scoreboard", "time", "day_time", "weather", "distance", "distance_to_npc",
-            "sneaking", "crouching", "on_ground", "team", "name", "player_name"
+            "sneaking", "crouching", "on_ground", "team", "name", "player_name", "opinion", "npc_faction"
     );
     private static final Map<String, DialogueConditionHandler> CUSTOM_HANDLERS = new ConcurrentHashMap<>();
 
@@ -51,6 +51,7 @@ public final class DialogueConditionEvaluator {
             if (!supports(predicate.type()) || !hasRequiredArguments(predicate)) {
                 return false;
             }
+            if (predicate.type().equals("opinion")) return matchesOpinion(player, target, predicate);
             DialogueConditionHandler handler = CUSTOM_HANDLERS.get(predicate.type());
             if (handler != null) {
                 try {
@@ -77,6 +78,7 @@ public final class DialogueConditionEvaluator {
             case "game_mode", "gamemode" -> !(condition.value().isBlank() && condition.id().isBlank());
             case "weather", "team", "name", "player_name" -> !condition.value().isBlank();
             case "score", "scoreboard" -> !condition.objective().isBlank();
+            case "npc_faction" -> !condition.id().isBlank();
             default -> true;
         };
     }
@@ -108,6 +110,7 @@ public final class DialogueConditionEvaluator {
             Entity target
     ) {
         return switch (condition.type()) {
+            case "npc_faction" -> target instanceof net.aviel.dialogue.entity.DialogueNpcEntity npc && npc.social().faction().equals(condition.id());
             case "flag" -> playerData(player).hasFlag(player.getUUID(), condition.id());
             case "tag" -> player.getTags().contains(condition.id());
             case "choice" -> playerData(player).hasChoice(player.getUUID(), condition.id());
@@ -141,6 +144,21 @@ public final class DialogueConditionEvaluator {
 
     private static NpcDialoguePlayerData playerData(ServerPlayer player) {
         return NpcDialoguePlayerData.get(player.server);
+    }
+
+    private static boolean matchesOpinion(ServerPlayer player, Entity target, DialogueCondition.Predicate condition) {
+        try {
+            var reference = new net.aviel.dialogue.npc.social.OpinionReference(condition.stringArgument("scope", ""),
+                    condition.stringArgument("faction", ""), condition.stringArgument("key", ""));
+            String key = reference.resolve(target);
+            if (key.isEmpty()) return false;
+            double min = condition.min() == null ? -100 : condition.min();
+            double max = condition.max() == null ? 100 : condition.max();
+            if (!Double.isFinite(min) || !Double.isFinite(max) || min < -100 || max > 100 || min > max) return false;
+            return condition.expected() == inRange(net.aviel.dialogue.npc.social.OpinionData.get(player.server).score(player.getUUID(), key), condition);
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
     }
 
     static boolean hasAdvancement(ServerPlayer player, String rawId) {

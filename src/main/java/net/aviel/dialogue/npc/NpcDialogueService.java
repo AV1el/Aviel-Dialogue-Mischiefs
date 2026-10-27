@@ -157,7 +157,8 @@ public final class NpcDialogueService {
         for (NpcDialogueDefinition.KillRule rule : choice.requiresKills()) {
             if (!DialogueConditionEvaluator.hasKills(player, rule.entity(), rule.count())) return false;
         }
-        if (!DialogueConditionEvaluator.matches(choice.condition(), player, target)) {
+        if (!net.aviel.dialogue.npc.social.NpcSocialService.referencesValid(target, choice.opinionChanges())
+                || !DialogueConditionEvaluator.matches(choice.condition(), player, target)) {
             return false;
         }
         return DialogueItemHandler.hasItemRules(player, choice.requiresItems())
@@ -177,6 +178,7 @@ public final class NpcDialogueService {
         if (!isChoiceAvailable(player, target, choice)) {
             return false;
         }
+        if (!net.aviel.dialogue.npc.social.NpcSocialService.referencesValid(target, choice.opinionChanges())) return false;
         DialogueChoiceEvent event = new DialogueChoiceEvent(player, target, dialogueFile, nodeId, choice);
         NeoForge.EVENT_BUS.post(event);
         if (event.isCanceled()) {
@@ -217,6 +219,7 @@ public final class NpcDialogueService {
                 player.removeTag(normalized);
             }
         }
+        net.aviel.dialogue.npc.social.NpcSocialService.apply(player, target, choice.opinionChanges());
         for (String command : choice.commands()) {
             executeDialogueCommand(player, target, command);
         }

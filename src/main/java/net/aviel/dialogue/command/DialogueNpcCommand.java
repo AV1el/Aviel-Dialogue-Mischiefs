@@ -41,6 +41,9 @@ public final class DialogueNpcCommand {
         dispatcher.register(Commands.literal("npc")
                 .requires(source -> source.hasPermission(net.aviel.dialogue.Config.COMMAND_PERMISSION_LEVEL.get()))
                 .then(NpcEditCommands.spawnSubtree())
+                .then(NpcCompanionCommands.subtree())
+                .then(NpcOpinionCommands.subtree())
+                .then(NpcStatsCommands.subtree())
                 .then(NpcEditCommands.removeSubtree())
                 .then(NpcEditCommands.setSubtree())
                 .then(NpcEquipCommands.subtree(buildContext))
@@ -196,6 +199,10 @@ public final class DialogueNpcCommand {
     }
 
     private static int reload(CommandSourceStack source) {
+        if (!net.aviel.dialogue.npc.social.NpcSocialService.reload()) {
+            source.sendFailure(Component.literal("Invalid factions.json; previous faction relations remain active. See server log."));
+            return 0;
+        }
         DialogueRepository.invalidateCaches();
         NpcTradeService.invalidateCaches();
         ConfigAssetPackBuilder.prepare();
